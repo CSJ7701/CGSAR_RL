@@ -1,0 +1,15 @@
+{
+    "environment": {
+        "settings": {
+            "degrees_per_mile": 69.172,
+            "bathymetry_data_path": "resources/GEBCO_tiff/gebco_2024_n35.0_s25.0_w-82.0_e-75.0.tif",
+            "default_window_margin": 5
+        }
+    },
+    "application": {
+        "settings": {
+            "config": "resources/settings.json",
+            "project_dir": "/home/csj7701/Projects/CGSAR_RL"
+        }
+    }
+}

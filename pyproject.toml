@@ -7,8 +7,14 @@ license = "GPL3.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 pygame = "^2.6.1"
+pygame-menu = "^4.5.1"
+overpy = "^0.7"
+pyproj = "^3.7.0"
+rasterio = "^1.4.3"
+matplotlib = "^3.10.0"
+numpy = "^2.2.1"
 
 
 [build-system]
