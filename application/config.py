@@ -54,7 +54,7 @@ class Config:
             data = data[key]
         return data
 
-    def get_value(self, key) -> str|None:
+    def get_value(self, key) -> str:
         """Get the value of a key in the configuration.
 
         :param key: Key path seperated by dots (e.g., "section.sub1.sub2.value")
@@ -64,7 +64,7 @@ class Config:
         data = self._navigate_to_key(key_path)
         if data and key_path[-1] in data:
             return str(data[key_path[-1]])
-        return None
+        raise ValueError(f"ERROR: Invalid settings for {key}.")
 
     def set_value(self, key, value) -> None:
         """

@@ -15,6 +15,10 @@ pyproj = "^3.7.0"
 rasterio = "^1.4.3"
 matplotlib = "^3.10.0"
 numpy = "^2.2.1"
+copernicusmarine = "^2.0.0"
+xarray = "^2025.1.1"
+cartopy = "^0.24.1"
+scipy = "^1.15.1"
 
 
 [build-system]
