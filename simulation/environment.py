@@ -38,9 +38,7 @@ class Environment:
         self.bounds = self.calculate_bounds()
         self.date = self.get_date() if not date else date
         
-        self.current_data = self.CurrentData()
-        self.depth_data = self.DepthData()
-        self.wind_data = self.WindData()
+        self.Update()
 
     def get_margin(self, input_margin) -> int:
         """
@@ -126,6 +124,11 @@ class Environment:
         """
         fetcher = WindFetcher(self.config_path)
         return fetcher.WindData(self.date, self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
+
+    def Update(self):
+        self.current_data = self.CurrentData()
+        self.depth_data = self.DepthData()
+        self.wind_data = self.WindData()
 
     def Plot(self):
         # Extract current info
