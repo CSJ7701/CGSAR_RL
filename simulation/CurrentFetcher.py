@@ -6,9 +6,17 @@ from datetime import datetime
 import xarray as xr
 
 class CurrentFetcher:
-    def __init__(self, config_path):
+    """
+    Fetches and manages ocean current datasets from Copernicus Marine.
+    """
+    def __init__(self, config_path: str) -> None:
+        """
+        Initializes the CurrentFetcher with configuration settings.
+
+        :param config_path: Path to the configuration file.
+        """
         self.c = Config(config_path)
-        # Dataset info
+
         data_subdir = self.c.get_value("application.data.storage")
         root_path = self.c.get_value("application.settings.project_dir")
         self.data_dir = os.path.join(root_path, data_subdir)
@@ -23,6 +31,11 @@ class CurrentFetcher:
         self.LoadDataset()
         
     def ValidDataset_p(self) -> bool:
+        """
+        Checks whether the stored dataset is valid based on expiration and existence.
+
+        :return: True if dataset is valid, False otherwise.
+        """
         path = os.path.join(self.data_dir, self.data_file)
         if not isinstance(datetime.strptime(self.data_updated, '%Y-%m-%dT%H:%M:%S'), datetime):
             return False
@@ -38,11 +51,13 @@ class CurrentFetcher:
             return False
 
     def FetchDataset(self) -> None:
+        """
+        Fetches the dataset from the Copernicus Marine service and updates metadata.
+        """
         path = os.path.join(self.data_dir, self.data_file)
         if os.path.exists(path):
             os.remove(path)
-        #dataset_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-        #dataset_end = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
         dataset_start = datetime.strptime(self.c.get_value("application.data.time_range_start"), '%Y-%m-%dT%H:%M:%S').isoformat()
         dataset_end = datetime.strptime(self.c.get_value("application.data.time_range_end"), '%Y-%m-%dT%H:%M:%S').isoformat()
         
@@ -62,10 +77,24 @@ class CurrentFetcher:
             )
         self.c.set_value("application.data.current.updated", datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 
-    def LoadDataset(self):
+    def LoadDataset(self) -> None:
+        """
+        Loads the dataset from the stored NetCDF file.
+        """
         self.data_full = xr.open_dataset(os.path.abspath(os.path.join(self.data_dir, self.data_file)))
 
-    def SurfaceCurrents(self, date, min_lat, max_lat, min_lon, max_lon):
+    def SurfaceCurrents(self, date: str, min_lat: float, max_lat: float, min_lon: float, max_lon:float):
+        """
+        "Retrieves surface current data for a given date and geographical bounds.
+
+        :param date: Date string, in IDO format.
+        :param min_lat: Minimum latitude.
+        :param max_lat: Maximum latitude.
+        :param min_lon: Minimum longitude.
+        :param max_lon: Maximum longitude.
+        :return: Surface current data within the specified bounds.
+        :raises ValueError: If dataset is not loaded or if the requested data is unavailable.
+        """
         if self.data_full is None:
             raise ValueError("Error: Dataset not loaded. Call 'LoadDataset()' first.")
 
@@ -79,18 +108,13 @@ class CurrentFetcher:
                 longitude=slice(min_lon, max_lon)
             )
 
-            # surf_data_east = surface_data.uo.values
-            # surf_data_north = surface_data.vo.values
-
-            # return {
-            #     "eastward": surf_data_east,
-            #     "northward": surf_data_north
-            # }
-
             return surface_data
         except KeyError as e:
             raise ValueError(f"Error: Could not find data for the supplied parameters: {e}")
 
-    def CloseDataset(self):
+    def CloseDataset(self) -> None:
+        """
+        Closes the loaded dataset to free resources.
+        """
         if self.data_full is not None:
             self.data_full.close()

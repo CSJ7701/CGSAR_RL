@@ -1,5 +1,5 @@
 import math
-from typing import Tuple
+from typing import Tuple, Optional
 import os
 from datetime import datetime, timedelta
 import random
@@ -16,9 +16,15 @@ from .DepthFetcher import DepthFetcher
 from .WindFetcher import WindFetcher
 
 class Environment:
+    """
+    Represents an environment with oceanic and atmospheric conditions,
+    fetching data on currents, depth, and wind within a specified boundary.
+    """
 
-    def __init__(self, lat: float, lon: float, config_path: str, margin:int=0):
+    def __init__(self, lat: float, lon: float, config_path: str, margin:int=0, date:Optional[datetime]=None) -> None:
         """
+        Initializes the Environment object with geographic location and configuration settings.
+        
         :param lat: Starting latitude.
         :param lon: Starting longitude.
         :param config_path: Path to the configuration file. Must be an absolute path.
@@ -30,16 +36,22 @@ class Environment:
         self.center = (lat,lon)
         self.margin = int(self.config.get_value("environment.settings.default_window_margin")) if margin == 0 else margin
         self.bounds = self.calculate_bounds()
-        self.date = self.get_date()
+        self.date = self.get_date() if not date else date
         
         self.current_data = self.CurrentData()
         self.depth_data = self.DepthData()
         self.wind_data = self.WindData()
 
-    def get_margin(self, input) -> int:
+    def get_margin(self, input_margin) -> int:
+        """
+        Determines the appropriate margin value based on input and config settings.
+
+        :param input_margin: User defined margin (0 to use default config value).
+        :return: Computed margin value in miles
+        """
         default = self.config.get_value("environment.settings.default_window_margin")
-        if input != 0:
-            return input
+        if input_margin != 0:
+            return input_margin
         elif default:
             return int(default)
         else:
@@ -47,7 +59,7 @@ class Environment:
 
     def calculate_bounds(self) -> Tuple[float,float,float,float]:
         """
-        Calculate the bounded area using margin and center.
+        Calculates the bounding box coordinates based on the margin and center.
 
         :return: Tuple[min_lat, max_lat, min_lon, lax_lon]
         """
@@ -73,7 +85,12 @@ class Environment:
 
         return (min_lat, max_lat, min_lon, max_lon)
 
-    def get_date(self):
+    def get_date(self) -> datetime:
+        """
+        Retrieves a random date within the configured time range.
+
+        :return: A datetime object representing a randomly chosen timestamp.
+        """
         start = self.config.get_value("application.data.time_range_start")
         start = datetime.fromisoformat(start)
         end = self.config.get_value("application.data.time_range_end")
@@ -81,63 +98,36 @@ class Environment:
 
         delta = end-start
         random_seconds = random.randint(0,int(delta.total_seconds()))
-
         return start + timedelta(seconds=random_seconds)
 
     def CurrentData(self):
+        """
+        Fetches surface current data within the environment bounds.
+
+        :return: Surface current data.
+        """
         fetcher = CurrentFetcher(self.config_path)
         return fetcher.SurfaceCurrents(self.date, self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
     def DepthData(self):
+        """
+        Fetches depth data within the environment bounds.
+
+        :return: Depth data.
+        """
         fetcher = DepthFetcher(self.config_path)
         return fetcher.DepthData(self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
     def WindData(self):
+        """
+        Fetches wind data within the environment bounds.
+
+        :return: Wind data.
+        """
         fetcher = WindFetcher(self.config_path)
         return fetcher.WindData(self.date, self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
-    def net_current(self):
-        uo = self.current_data.uo.values
-        vo = self.current_data.vo.values
-        lat = self.current_data.latitude.values
-        lon = self.current_data.longitude.values
-
-        tau_x = self.wind_data.eastward_stress.values
-        tau_y = self.wind_data.northward_stress.values
-        wind_lat = self.wind_data.latitude.values
-        wind_lon = self.wind_data.longitude.values
-
-        omega = float(self.config.get_value("environment.constants.earth_rotational_vel"))
-        rho = float(self.config.get_value("environment.constants.water_density"))
-
-        # Coriolis parameter
-        f = 2 * omega * np.sin(np.deg2rad(lat))
-        # Edge cases: f=0 (at the equator, for instance)
-        f[np.abs(f) < 1e-8] = np.sign(f[np.abs(f) < 1e-8]) * 1e-8
-
-        tau_x_interpolator = RegularGridInterpolator((wind_lat, wind_lon), tau_x, bounds_error=False, fill_value=0)
-        tau_y_interpolator = RegularGridInterpolator((wind_lat, wind_lon), tau_y, bounds_error=False, fill_value=0)
-
-        lon_grid, lat_grid = np.meshgrid(lon, lat)
-        tau_x_interp = tau_x_interpolator((lat_grid, lon_grid))
-        tau_y_interp = tau_y_interpolator((lat_grid, lon_grid))
-
-        # Wind-induces Ekman current
-        u_ekman = tau_y_interp / (rho * f[:, None])
-        v_ekman = -tau_x_interp / (rho * f[:, None])
-
-        # Net current
-        net_u = uo + u_ekman
-        net_v = vo + v_ekman
-
-        return {
-            'un': net_u,
-            'vn': net_v,
-            'latitude': lat,
-            'longitude': lon
-        }
-
-    def PlotSeperate(self):
+    def Plot(self):
         # Extract current info
         uo = self.current_data.uo.values
         vo = self.current_data.vo.values
@@ -183,20 +173,6 @@ class Environment:
         # Display
         plt.show()
 
-    def PlotNet(self):
-        net_current = self.net_current()
-
-        net_u = net_current['un']
-        net_v = net_current['vn']
-        lat = net_current['latitude']
-        lon = net_current['longitude']
-
-        fig, ax = plt.subplots(figsize = (10,8), subplot_kw={'projection': ccrs.PlateCarree()})
-        ax.coastlines()
-        ax.add_feature(cfeature.LAND, facecolor='lightgray')
-        ax.quiver(lon, lat, net_u, net_v, color='blue', alpha=0.7)
-        plt.show()
-        
 if __name__ == "__main__":
     lat = 30.0
     lon = -80.0

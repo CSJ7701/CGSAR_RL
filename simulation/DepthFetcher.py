@@ -6,9 +6,15 @@ from datetime import datetime
 import xarray as xr
 
 class DepthFetcher:
+    """Fetches and manages ocean depth datasets from Copernicus Marine."""
     def __init__(self, config_path):
+        """
+        Initializes the DepthFetcher with configuration settings.
+
+        :param config_path: Path to the configuration file.
+        """
         self.c = Config(config_path)
-        # Dataset info
+
         data_subdir = self.c.get_value("application.data.storage")
         root_path = self.c.get_value("application.settings.project_dir")
         self.data_dir = os.path.join(root_path, data_subdir)
@@ -23,6 +29,11 @@ class DepthFetcher:
         self.LoadDataset()
         
     def ValidDataset_p(self) -> bool:
+        """
+        Checks whether the stored dataset is valid based on expiration and existence.
+
+        :return: True if dataset is valid, False otherwise.
+        """
         path = os.path.join(self.data_dir, self.data_file)
         if not isinstance(datetime.strptime(self.data_updated, '%Y-%m-%dT%H:%M:%S'), datetime):
             return False
@@ -38,11 +49,13 @@ class DepthFetcher:
             return False
 
     def FetchDataset(self) -> None:
+        """
+        Fetches the dataset from the Copernicus Marine service and updates metadata.
+        """
         path = os.path.join(self.data_dir, self.data_file)
         if os.path.exists(path):
             os.remove(path)
-        #dataset_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-        #dataset_end = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
         dataset_start = datetime.strptime(self.c.get_value("application.data.time_range_start"), '%Y-%m-%dT%H:%M:%S').isoformat()
         dataset_end = datetime.strptime(self.c.get_value("application.data.time_range_end"), '%Y-%m-%dT%H:%M:%S').isoformat()
         
@@ -63,9 +76,22 @@ class DepthFetcher:
         self.c.set_value("application.data.depth.updated", datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 
     def LoadDataset(self):
+        """
+        Loads the dataset from the stored NetCDF file.
+        """
         self.data_full = xr.open_dataset(os.path.abspath(os.path.join(self.data_dir, self.data_file)))
         
     def DepthData(self, min_lat, max_lat, min_lon, max_lon):
+        """
+        "Retrieves depth data for a given date and geographical bounds.
+
+        :param min_lat: Minimum latitude.
+        :param max_lat: Maximum latitude.
+        :param min_lon: Minimum longitude.
+        :param max_lon: Maximum longitude.
+        :return: Depth data within the specified bounds.
+        :raises ValueError: If dataset is not loaded or if the requested data is unavailable.
+        """
         if self.data_full is None:
             raise ValueError("Error: Dataset not loaded. Call 'LoadDataset()' first.")
 
@@ -81,6 +107,9 @@ class DepthFetcher:
             raise ValueError(f"Error: Could not find data for the supplied parameters: {e}")
 
     def CloseDataset(self):
+        """
+        Closes the loaded dataset to free resources.
+        """
         if self.data_full is not None:
             self.data_full.close()
 
