@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from simulation.Simulation import Simulation
+from simulation.Visualizer import Visualizer
 from simulation.environment import Environment
 
 lat = 30.0
@@ -16,4 +17,5 @@ e = Environment(lat, lon, config_path)
 #e.Plot()
 
 s = Simulation(lat, lon, config_path, start_date, end_date)
-s.Run()
+v = Visualizer(s)
+v.run(interval=10)
