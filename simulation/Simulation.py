@@ -32,7 +32,9 @@ class Simulation:
         self.current_step=0
         self.simulation_steps=100
 
-    def Plot(self, current_step: int):
+#        self.Plot()
+
+    def Plot(self):
         if not self.fig:
             self.fig, self.ax = plt.subplots(figsize=(10,8), subplot_kw={'projection': ccrs.PlateCarree()})
             self.ax.coastlines()
@@ -66,23 +68,20 @@ class Simulation:
         self.ax.quiver(lon_grid, lat_grid, uo, vo, color='red', alpha=0.7, label="Current")
         self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label="Wind")
 
-        self.ax.set_title(f"Surface Currents and Wind on {str(self.env.date)} at Step {current_step}")
+        self.ax.set_title(f"Surface Currents and Wind on {str(self.env.date)} at Step 0")
         self.ax.set_xlabel("Longitude")
         self.ax.set_ylabel("Latitude")
         self.ax.set_xlim(lon.min(), lon.max())
         self.ax.set_ylim(lat.min(), lat.max())
 
-    def Update(self):
+    def Update(self, frame):
         """
         Updates the environment for the next step in the simulation and updates data for RL model.
         Also triggers visualisation updates.
         """
-        self.current_step+=1
-        if self.current_step >= self.simulation_steps:
-            self.current_step=0
+        self.current_step = frame
 
-        self.Plot(self.current_step)
-
+        uo = self.currents.uo.values
 
     def Run(self):
         self.Plot(0)
