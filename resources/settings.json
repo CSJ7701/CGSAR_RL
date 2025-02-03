@@ -45,10 +45,10 @@
     },
     "victims": {
 	"piw": {
+	    "density": 985
 	},
-	"lifejacket": {
-	},
-	"liferaft": {
+	"piw_lj": {
+	    "density": 895
 	}
     }
 }
