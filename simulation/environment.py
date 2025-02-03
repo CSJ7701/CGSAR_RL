@@ -8,12 +8,15 @@ import numpy as np
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from scipy.interpolate import RegularGridInterpolator
+import logging
 
 from application.config import Config
 from .BathymetryFetcher import BathymetryFetcher
 from .CurrentFetcher import CurrentFetcher
 from .DepthFetcher import DepthFetcher
 from .WindFetcher import WindFetcher
+
+logger = logging.getLogger(__name__)
 
 class Environment:
     """
@@ -37,23 +40,10 @@ class Environment:
         self.margin = int(self.config.get_value("environment.settings.default_window_margin")) if margin == 0 else margin
         self.bounds = self.calculate_bounds()
         self.date = self.get_date() if not date else date
+        logger.info("Environment initialized.")
+        logger.debug(f"{self.config_path=} {self.center=} {self.margin=} {self.bounds=} {self.date=}")
         
         self.Update()
-
-    def get_margin(self, input_margin) -> int:
-        """
-        Determines the appropriate margin value based on input and config settings.
-
-        :param input_margin: User defined margin (0 to use default config value).
-        :return: Computed margin value in miles
-        """
-        default = self.config.get_value("environment.settings.default_window_margin")
-        if input_margin != 0:
-            return input_margin
-        elif default:
-            return int(default)
-        else:
-            raise ValueError("Error: Invalid settings for environment.settings.default_window_margin.\nValue does not exist.")
 
     def calculate_bounds(self) -> Tuple[float,float,float,float]:
         """
@@ -61,14 +51,15 @@ class Environment:
 
         :return: Tuple[min_lat, max_lat, min_lon, lax_lon]
         """
-
         conversion_factor = self.config.get_value("environment.settings.degrees_per_mile")
         if not conversion_factor:
+            logging.warning(f"You must define a setting for 'environment.settings.degrees_per_mile' in {self.config_path}")
             raise ValueError("Error: Invalid setting for environment.settings.degrees_per_mile\nValue does not exist.")
         try:
             conversion_factor=float(conversion_factor)
         except ValueError:
-            raise ValueError(f"Error: Invalid setting for environment.settings.degrees_per_mile\nValue '{conversion_factor}' is not an integer.")
+            logging.warning("The value for 'environment.settings.degrees_per_mile' must be an float value.")
+            raise ValueError(f"Error: Invalid setting for environment.settings.degrees_per_mile\nValue '{conversion_factor}' is not a float.")
 
         lat = self.center[0]
         lon = self.center[1]

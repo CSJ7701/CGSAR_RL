@@ -5,17 +5,26 @@ import cartopy.feature as cfeature
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from datetime import timedelta
+import logging
+
+plt.set_loglevel (level='warning')
+pil_logger = logging.getLogger('PIL')
+pil_logger.setLevel(logging.WARNING)
+conv_logger = logging.getLogger('h5py')
+conv_logger.setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 class Visualizer:
     def __init__(self, simulation):
         """
         :param simulation: An instance of the simulation class.
         """
-
         self.sim = simulation
         self.fig, self.ax = plt.subplots(figsize=(10,8), subplot_kw={'projection': ccrs.PlateCarree()})
         self.ax.coastlines()
         self.ax.add_feature(cfeature.LAND, facecolor='lightgray')
+
+        logger.info("Visualizer initialized.")
 
     def plot(self, current_step, initial:bool):
         """
@@ -64,4 +73,5 @@ class Visualizer:
         ani = anim.FuncAnimation(self.fig, self.update, frames=steps, interval=interval)
         #plt.show()
         ani.save("./test.mp4", writer=anim.FFMpegWriter(fps=60))
+        logger.info("Animation saved to ./test.mp4")
         
