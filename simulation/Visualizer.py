@@ -97,9 +97,9 @@ class Visualizer:
         plt.show()
 
     def run(self, show:bool=False):
-        self.plot2(0)
+        self.plot(0)
         steps = self.sim.simulation_steps
-        ani = anim.FuncAnimation(self.fig, self.update2, frames=steps, interval=30)
+        ani = anim.FuncAnimation(self.fig, self.update, frames=steps, interval=30)
         if show:
             logger.info("\033[32mDisplaying plot...\033[0m")
             plt.show()

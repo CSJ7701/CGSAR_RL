@@ -27,7 +27,7 @@ logger.info("Simulation Parameters: Center=(%s, %s), Margin=%s miles, Start=%s, 
 
 logger.info("\033[32mRunning simulation.\033[0m")
 s = Simulation(lat, lon, config_path, start_date, end_date)
-v=Victim(10,10,10, 30.1, -80.2, config_path)
+v=Victim(10,10,10, 30.1, -80.2, "piw", config_path)
 s._add_victim(v)
 s.RunShow()
 
