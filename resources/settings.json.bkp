@@ -2,16 +2,17 @@
     "environment": {
         "settings": {
             "degrees_per_mile": 69.172,
-            "default_window_margin": 200,
+            "default_window_margin": 500,
             "latitude_min": 25.0,
             "latitude_max": 35.0,
             "longitude_min": -82.0,
             "longitude_max": -75.0
         },
-	"constants": {
-	    "earth_rotational_vel": 7.292e-5, // Earth's rotational velocity in rad/s
-	    "water_density": 1025 // Density of water in kg/m^3
-	}
+        "constants": {
+	    "pi": 3.14159,
+            "earth_rotational_vel": 7.292e-05,
+            "water_density": 1025
+        }
     },
     "application": {
         "settings": {
@@ -27,19 +28,27 @@
             "time_range_end": "2023-01-31T00:00:00",
             "depth": {
                 "file": "depth.nc",
-                "updated": "2025-01-24T15:43:30",
+                "updated": "2025-01-27T08:44:13",
                 "ID": "cmems_mod_glo_phy_anfc_0.083deg_static"
             },
             "current": {
                 "file": "current.nc",
-                "updated": "2025-01-25T13:00:26",
+                "updated": "2025-01-27T08:44:04",
                 "ID": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m"
             },
             "wind": {
                 "file": "wind.nc",
-                "updated": "2025-01-26T19:43:28",
+                "updated": "2025-01-27T08:44:48",
                 "ID": "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H"
             }
         }
+    },
+    "victims": {
+	"piw": {
+	},
+	"lifejacket": {
+	},
+	"liferaft": {
+	}
     }
 }

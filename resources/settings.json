@@ -9,6 +9,7 @@
             "longitude_max": -75.0
         },
         "constants": {
+	    "pi": 3.14159,
             "earth_rotational_vel": 7.292e-05,
             "water_density": 1025
         }
@@ -41,5 +42,13 @@
                 "ID": "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H"
             }
         }
+    },
+    "victims": {
+	"piw": {
+	},
+	"lifejacket": {
+	},
+	"liferaft": {
+	}
     }
 }
