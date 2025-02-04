@@ -1,10 +1,13 @@
+from typing import Dict, Tuple
 from application.config import Config
 import logging
+
+from simulation.Environment import Environment
 
 logger = logging.getLogger(__name__)
 
 class Victim:
-    def __init__(self, x: float, y: float, z: float, lat: float, lon: float, type:str, config_path: str):
+    def __init__(self, x: float, y: float, z: float, lat: float, lon: float, type:str, env:Environment, config_path: str):
         self.x=x
         self.y=y
         self.z=z
@@ -12,6 +15,7 @@ class Victim:
         self.lon=lon,
         self.start=(lat, lon)
         self.type=self._parse_type(type).lower()
+        self.env=env
         self.config_path=config_path
         self.config=Config(self.config_path)
 
@@ -35,15 +39,22 @@ class Victim:
         # In the future, we may have to calculate x and z dynamically based on orientation
         return self.pi*x*z
 
+    def _get_vectors(self):
+        return self.env.Query(self.lat[0], self.lon[0])
+        
+
     def F(self, water_velocity: float):
         p = float(self.config.get_value("environment.constants.water_density"))
         A = self._csa(self.x, self.z)
         return (water_velocity**2) * A * p
 
-    def A(self, water_velocity: float) -> float:
-        F = self.F(water_velocity)
+    def A(self, F: float) -> float:
         m = self.mass
         return F/m
 
-    def V(self, water_velocity: float) -> float:
-        ...
+    def V(self, A: float) -> float:
+        # This is not a vector
+        t=1
+        return (self.velocity * t)+(A*(t**2))
+
+    

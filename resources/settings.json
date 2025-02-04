@@ -2,7 +2,7 @@
     "environment": {
         "settings": {
             "degrees_per_mile": 69.172,
-            "default_window_margin": 500,
+            "default_window_margin": 10,
             "latitude_min": 25.0,
             "latitude_max": 35.0,
             "longitude_min": -82.0,
