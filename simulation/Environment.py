@@ -11,7 +11,6 @@ from scipy.interpolate import RegularGridInterpolator
 import logging
 
 from application.config import Config
-from .BathymetryFetcher import BathymetryFetcher
 from .CurrentFetcher import CurrentFetcher
 from .DepthFetcher import DepthFetcher
 from .WindFetcher import WindFetcher
