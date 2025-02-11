@@ -30,7 +30,7 @@ The radius of the earth.
 This is a constant.
 Do not recommend changing this value.
 *** water_density
-Density of water in \(\frac{\text{kg}}{\text{m}^3}\)
+Density of water in $$\frac{\text{kg}}{\text{m}^3}$$
 * Application
 ** Settings
 *** config
