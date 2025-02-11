@@ -2,6 +2,8 @@
 
 This module houses the main simulation logic; the environment that we built for our RL agent to run in. It is comprised of several components that each handle their own portion of the simulation logic.
 
+/Note/: All references to the configuration file here are for convenience only. For more details on configuration values, see the =settings.org= file in the =resources= directory.
+
 * Sub Modules
 ** Environment
 The 'Environment' class handles environmental data. It is responsible for storing, updating, and low-level parsing of wind data, surface currents, and depth. It calls designated 'Fetcher' classes that download this information from the internet to local files.
