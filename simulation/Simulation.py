@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Simulation:
 
-    def __init__(self, lat: float, lon: float, config_path: str, start_date:datetime, end_date:datetime, time_step: timedelta = timedelta(minutes=30)):
+    def __init__(self, lat: float, lon: float, config_path: str, start_date:datetime, end_date:datetime):
         self.lat = lat
         self.lon = lon
         self.config_path = config_path
@@ -19,7 +19,7 @@ class Simulation:
         
         self.start=start_date
         self.end=end_date
-        self.time_step=time_step
+        self.time_step=timedelta(minutes=float(self.config.get_value("environment.settings.simulation_timedelta_minutes")))
         self.date=self.start
 
         self.env = Environment(self.lat, self.lon, self.config_path, date=start_date)

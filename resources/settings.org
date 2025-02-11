@@ -17,6 +17,15 @@ These values define the area for data to download.
 Primarily used in the simulation module's 'Fetcher' classes.
 You may have to manually update the downloaded datasets after updating these values.
 Change as needed.
+**** simulation_timedelta_minutes
+Defines the time step in minutes for each step of the simulation. This defines the rate at which the top-level components, such as the environment and the visualization will update.
+Change as necessary.
+Recommend values between 10 and 60. Lower values provide higher granularity, and likely a more accurate simulation, but result in slower runtime.
+**** victim_timedelta_seconds
+Defines the time step in seconds for the physical simulation of a victim's motion.
+Change as necessary.
+Highly recommend values between 0.01 and 1. The smaller the value, the more precise the simulation of motion will be, but the slower it will run. The larger the value, the faster but less precise it will be. Values that are too high will result in unstable motion, and could cause the simulated object to accelerate at an excessive rate.
+
 ** Constants
 *** pi
 Defines a value for pi.

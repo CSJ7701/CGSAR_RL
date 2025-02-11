@@ -2,6 +2,7 @@ from typing import Dict, Tuple
 import logging
 import numpy as np
 from scipy.interpolate import interp2d
+from datetime import timedelta
 
 from application.config import Config
 from simulation.Environment import Environment
@@ -20,7 +21,8 @@ class Victim:
         self.env=env
         self.config_path=config_path
         self.config=Config(self.config_path)
-        self.dt = 1
+        self.dt = float(self.config.get_value("environment.settings.victim_timedelta_seconds")) # time delta in seconds.
+
 
         #self.density = float(self.config.get_value(f"victims.{self.type}.density"))
         #self.volume = (4/3)*self.pi*self.x*self.y*self.z
@@ -40,6 +42,11 @@ class Victim:
             logger.critical(f"\"{type}\" is not a valid victim type.")
             raise ValueError("Invalid victim type. Please use a valid value.")
         else: return input_type
+
+    def _simulation_steps(self) -> int:
+        simulation_timestep = timedelta(minutes=float(self.config.get_value("environment.settings.simulation_timedelta_minutes")))
+        victim_timestep = timedelta(seconds=self.dt)
+        return simulation_timestep // victim_timestep
 
     def _csa(self, x:float, z:float) -> float:
         # Currently we assume orientation does not matter.
@@ -102,18 +109,21 @@ class Victim:
         return earth_rad*c # Distance in meters
 
     def Update(self):
-        v_water = np.array(self._get_vectors()["net_current"])
-        v_rel = v_water-self.velocity
+        steps = self._simulation_steps()
 
-        F_net = self.F(v_rel)
-        A=self.A(F_net)
-        self.velocity=self.V(A)
-        logger.debug(f"Victim Velocity - v_water:{v_water}, v_relative:{v_rel}, v_victim:{self.velocity}")
-        self.lat, self.lon = self.X(self.velocity)
+        for _ in range(steps):
+            v_water = np.array(self._get_vectors()["net_current"])
+            v_rel = v_water-self.velocity
 
-        self.position = (self.lat, self.lon)
-        logger.debug(f"Victim position update: {self.position}")
-        self.path.append(self.position)
+            F_net = self.F(v_rel)
+            A=self.A(F_net)
+            self.velocity=self.V(A)
+            logger.debug(f"Victim Velocity - v_water:{v_water}, v_relative:{v_rel}, v_victim:{self.velocity}")
+            self.lat, self.lon = self.X(self.velocity)
+
+            self.position = (self.lat, self.lon)
+            logger.debug(f"Victim position update: {self.position}")
+            self.path.append(self.position)
 
         
         

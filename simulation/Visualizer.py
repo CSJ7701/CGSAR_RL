@@ -99,12 +99,12 @@ class Visualizer:
     def run(self, show:bool=False):
         self.plot(0)
         steps = self.sim.simulation_steps
-        ani = anim.FuncAnimation(self.fig, self.update, frames=steps, interval=30)
+        ani = anim.FuncAnimation(self.fig, self.update, frames=steps, interval=500)
         if show:
             logger.info("\033[32mDisplaying plot...\033[0m")
             plt.show()
         else:
-            ani.save("./test.mp4", writer=anim.FFMpegWriter(fps=60))
+            ani.save("./test.mp4", writer=anim.FFMpegWriter())
             logger.info("Animation saved to \033[32m./test.mp4\033[0m")
 
 

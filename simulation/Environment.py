@@ -163,7 +163,8 @@ class Environment:
         
         u_wind, v_wind = self.wind_interpolator(lat, lon)
         u_cur, v_cur = self.current_interpolator(lat, lon)
-        return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
+        #return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
+        return {"net_current": (u_wind.item(), v_wind.item())}
 
 if __name__ == "__main__":
     lat = 30.0
