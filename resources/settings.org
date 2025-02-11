@@ -1,0 +1,126 @@
+Description of all settings defined in the =settings.json= file. These settings define behavior for the entire simulation. Some are values you should change, some are absolutely NOT.
+The file is divided into sections, subsections, and values. If you make any major changes, it is recommended to back the settings file up before running a simulation. The simulation will check for a valid JSON file before it runs, and if the file is not valid it will be wiped.
+
+/Note/: In future, the goal will be to automatically restore from a =settings.json.bkp= file.
+
+* Environment
+** Settings
+**** degrees_per_mile
+The conversion factor from degrees lat/lon to miles.
+This is a constant.
+Do not recommend changing this value.
+**** default_window_margin
+The margin on each side of the center point. Defines the size of the window, and the area within which your simulation will run.
+Change as needed.
+**** latitude_min, latitude_max, longitude_min, longitude_max
+These values define the area for data to download.
+Primarily used in the simulation module's 'Fetcher' classes.
+You may have to manually update the downloaded datasets after updating these values.
+Change as needed.
+** Constants
+*** pi
+Defines a value for pi.
+Change as needed, but it should be pi.
+*** earth_rotational_vel
+The velocity at which earth rotates.
+This is a constant.
+Do not recommend changing this value.
+*** earth_radius
+The radius of the earth.
+This is a constant.
+Do not recommend changing this value.
+*** water_density
+Density of water in \(\frac{\text{kg}}{\text{m}^3}\)
+* Application
+** Settings
+*** config
+Path to the configuration file from the root of the project directory.
+Change as needed.
+*** project_dir
+Absolute path to the project directory.
+Change as needed.
+*** copernicus_username
+Username for Copernicus Marine services.
+Necessary if you wish to download new data.
+Change as needed.
+*** copernicus_password
+Password for Copernicus Marine services.
+Necessary if you wish to download new data.
+Change as needed.
+** Data
+*** expiration
+The number of days after which downloaded data will expire and be re-downloaded.
+Change as needed.
+*** storage
+The directory to store downloaded data in.
+Change as needed.
+*** time_range_start
+The beginning of the time range to download.
+*** time_range_end
+The end of the time range to download.
+*** depth
+Settings for the 'depth' data
+**** file
+Filename to save depth data as.
+Change as necessary.
+**** updated
+When the depth data was last updated.
+Do not recommend manually changing, but you can.
+Must be in '%YYYY-%MM-%DDT%HH:%MM:%SS' format.
+**** ID
+Dataset ID on Copernicus Marine website.
+Found in the data collection user manual.
+Do not recommend changing. Will break large portions of the code.
+*** current
+Settings for the 'current' data
+**** file
+Filename to save current data as.
+Change as necessary.
+**** updated
+When the current data was last updated.
+Do not recommend manually changing, but you can.
+Must be in '%YYYY-%MM-%DDT%HH:%MM:%SS' format.
+**** ID
+Dataset ID on Copernicus Marine website.
+Found in the data collection user manual.
+Do not recommend changing. Will break large portions of the code.
+*** wind
+Settings for the 'wind' data
+**** file
+Filename to save wind data as.
+Change as necessary.
+**** updated
+When the wind data was last updated.
+Do not recommend manually changing, but you can.
+Must be in '%YYYY-%MM-%DDT%HH:%MM:%SS' format.
+**** ID
+Dataset ID on Copernicus Marine website.
+Found in the data collection user manual.
+Do not recommend changing. Will break large portions of the code.
+
+* Victims
+Defines settings for different types of victim.
+** piw
+*** density
+Density of a person.
+Currently unused.
+*** avg_mass
+Average mass of a person in kg.
+Change as needed, may affect dynamics equations in unexpected ways.
+Recommend reasonable values.
+*** drag_coefficient
+Drag coefficient for a person in the water.
+Change as needed, may affect dynamics equations in unexpected ways.
+Recommend values close to 0.5.
+** piw_lj
+*** density
+Density of a person wearing a lifejacket.
+Currently unused.
+*** avg_mass
+Average mass of a person wearing a lifejacket in kg.
+Change as needed, may affect dynamics equations in unexpected ways.
+Recommend reasonable values.
+*** drag_coefficient
+Drag coefficient for a person in the water with a lifejacket.
+Change as needed, may affect dynamics equations in unexpected ways.
+Recommend values close to 0.5.
