@@ -86,8 +86,8 @@ class Victim:
 
     def X(self, V: np.ndarray):
         earth_rad = float(self.config.get_value("environment.constants.earth_radius"))
-        d_lat = (V[0] * self.dt) / earth_rad*(180/np.pi)
-        d_lon = (V[1] * self.dt) / (earth_rad*np.cos(np.radians(self.lat)))*(180/np.pi)
+        d_lat = (V[1] * self.dt) / earth_rad*(180/np.pi)
+        d_lon = (V[0] * self.dt) / (earth_rad*np.cos(np.radians(self.lat)))*(180/np.pi)
         return self.lat+d_lat, self.lon+d_lon
 
     def Displacement(self) -> float:

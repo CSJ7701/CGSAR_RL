@@ -16,7 +16,7 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 1, 2,00,00)
+end_date = datetime(2023, 1, 1, 8,00,00)
 
 logger.info("\033[32mStarting application.\033[0m")
 logger.info("Parameters are predefined in __main__ for stability; this is not a final product.")

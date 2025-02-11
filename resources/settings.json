@@ -7,7 +7,7 @@
             "latitude_max": 35.0,
             "longitude_min": -82.0,
             "longitude_max": -75.0,
-	    "simulation_timedelta_minutes": 1,
+	    "simulation_timedelta_minutes": 30,
 	    "victim_timedelta_seconds": 0.5
         },
         "constants": {
