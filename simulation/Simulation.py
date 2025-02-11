@@ -51,6 +51,8 @@ class Simulation:
     def Tick(self):
         self.date += self.time_step
         self.env.Update(self.date)
+        for v in self.victims:
+            v.Update()
         logger.info(f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}")
         
     def RunSave(self):

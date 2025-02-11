@@ -1,0 +1,65 @@
+* Simulation
+
+This module houses the main simulation logic; the environment that we built for our RL agent to run in. It is comprised of several components that each handle their own portion of the simulation logic.
+
+* Sub Modules
+** Environment
+The 'Environment' class handles environmental data. It is responsible for storing, updating, and low-level parsing of wind data, surface currents, and depth. It calls designated 'Fetcher' classes that download this information from the internet to local files.
+
+Input Arguments:
+- =lat=: the latitude of the center point
+- =lon=: the longitude of the center point
+- =config_path=: the path to the JSON config file. In this application, it is =resources/settings.json=.
+- =margin=: the margin in miles from the center point. If 0, then the value from the configuration file is used.
+- =date=: the initial date. If undefined, will grab a random date. Date must be within the range defined in the configuration file (=application.data.time_range_start= and =application.data.time_range_end=).
+
+
+Useful Function:
+- =CurrentData=: Fetch the surface current data for the current date, within the environment's bounds.
+- =DepthData=: Fetch depth data for the area within the environment's bounds.
+- =WindData=: Fetch wind data for the current data, within the environment's bounds.
+- =Update=: Update surface current, depth, and wind data. Takes a 'date' argument which will update the environment's current date.
+- =Query=: Return a dictionary with the net wind velocity vector, and net current velocity vector at a point. Will interpolate if between defined data points.
+** Victim
+The 'Victim' class represents a person floating in the ocean. This class handles the physical simulation of an object in water, calculating forces, velocity, and position. 'Victims' are represented as circular ellipsoids in 3-Dimensional space.
+
+Input Arguments:
+- =x=: the horizontal minor axis, in meters. X and Y should be equal.
+- =y=: the lateral minor axis, in meters. X and Y should be equal.
+- =z=: the major axis.
+- =lat=: Initial position. Latitude.
+- =lon=: Initial position. Longitude.
+- =victim_type=: The type of victim. Must be one of the allowed types (defined in the class file). Currently only 'piw' (person in water) and 'piw_lj' (person in water with lifejacket) are allowed.
+- =env=: 'Environment' object.
+- =config_path=: Path to the JSON configuration file.
+
+/Note/: The victim's position updates occur at a different rate from the rest of the simulation. This is because physical calculations are only accurate over a time range of a few seconds at most. For every simulation tick, a victim will update at a rate defined by values in the configuration file.
+
+Useful Functions:
+- =F=: Calculate the net force on the object.
+- =A=: Calculate the acceleration, based on force and mass.
+- =V=: Calculate the object's velocity based on acceleration over time.
+- =X=: Calculate the object's position. Returns an array of (lat,lon).
+- =Displacement=: Calculate the displacement in meters from the object's start position.
+- =Update=: Wrapper for other functions. Calculates and updates the victim's position.
+  
+** Simulation
+The 'Simulation' class is the main interface for the 'Simulation' module. It acts as a wrapper around the 'Environment' and 'Victim' classes, simulating ocean currents, wind vectors, and an object's movement through them both.
+
+Input Arguments:
+- =lat=: The latitude of the center point.
+- =lon=: The longitude of the center point.
+- =config_path=: The path to the JSON configuration file.
+- =start_date=: The date to start the simulation at. Must be within the time range defined in the configuration file.
+- =end_date=: The date to end the simulation. Must be within the time range defined in the configuration file.
+- =time_step=: a =datetime.timedelta= object, represents the time step at which the simulation will update the environment.
+
+/Note/: the =time_step= argument applies only to the rate at which the environmental data will update. The physical simulation and dynamics calculations are handled seperately, inside the =Victim= class. The rate at which a victim's position/velocity etc will update is dependent on the value for _xxx_ in the configuration file.
+
+
+Useful Functions:
+- =_add_victim=: Adds a =Victim= object to the simulation.
+- =Tick=: Advances the simulation by one time step.
+- =RunSave=: Run the simulation and the visualizer. Save the visualization as a GIF to the file specified in the =Visualizer= class.
+- =RunShow=: Run the simulation and the visualizer. Display the visualization. This runs the visualization and the simulation in real time, so the animation may be somewhat choppy.
+- =RunSingle=: Display the visualization for the first tick. Does not update. This is used primarily for debugging purposes, to ensure that geographical regions are defined correctly, and the plot displays as intended. If you alter any of the settings that define geographical data to download, or try to adjust the center point from what is defined here as a default, it is recommended that you use =RunSingle= to ensure that your plot displays the region you want before trying to run a full simulation.

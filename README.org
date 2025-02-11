@@ -1,0 +1,3 @@
+* CGSAR_RL
+
+This project intends to explore the application of Reinforcement Learning techniques to U.S. Coast Guard search and rescue.

@@ -7,7 +7,7 @@ from simulation.Victim import Victim
 
 # Static variables. These should not change.
 logger = logging.getLogger(__name__)
-logging.basicConfig(format='\033[1;31m[%(levelname)s]\033[0m \033[33m%(name)s\033[0m \033[94m%(funcName)s\033[0m - %(message)s', level=logging.INFO)
+logging.basicConfig(format='\033[1;31m[%(levelname)s]\033[0m \033[33m%(name)s\033[0m \033[94m%(funcName)s\033[0m - %(message)s', level=logging.DEBUG)
 proj_dir = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(proj_dir,"resources/settings.json")
 
@@ -26,9 +26,10 @@ logger.info("Simulation Parameters: Center=(%s, %s), Start=%s, End=%s",
 
 logger.info("\033[32mRunning simulation.\033[0m")
 s = Simulation(lat, lon, config_path, start_date, end_date)
-v=Victim(10,10,10, 30.1, -80.2, "piw", config_path)
+v=Victim(10,10,10, 30.1, -80.0, "piw", s.env, config_path)
 s._add_victim(v)
 s.RunSave()
+print(f"START: {v.start} --- END: {v.position} --- Displacement: {v.Displacement()}")
 
 
 
