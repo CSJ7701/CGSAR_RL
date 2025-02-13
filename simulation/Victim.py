@@ -1,16 +1,16 @@
-from typing import Dict, Tuple
-import logging
+from typing import Dict, Optional, Tuple
 import numpy as np
 from scipy.interpolate import interp2d
 from datetime import timedelta
 
+from application.logger import Logger
 from application.config import Config
 from simulation.Environment import Environment
 
-logger = logging.getLogger(__name__)
+
 
 class Victim:
-    def __init__(self, x: float, y: float, z: float, lat: float, lon: float, victim_type: str, env:Environment, config_path: str):
+    def __init__(self, x: float, y: float, z: float, lat: float, lon: float, victim_type: str, env:Environment, config_path: str, ID: int):
         self.x=x
         self.y=y
         self.z=z
@@ -21,8 +21,10 @@ class Victim:
         self.env=env
         self.config_path=config_path
         self.config=Config(self.config_path)
+        self.id = ID
         self.dt = float(self.config.get_value("environment.settings.victim_timedelta_seconds")) # time delta in seconds.
 
+        self.logger = Logger(f"Simulation.Victim{self.id}", file_prefix=f"victim{self.id}").get()
 
         #self.density = float(self.config.get_value(f"victims.{self.type}.density"))
         #self.volume = (4/3)*self.pi*self.x*self.y*self.z
@@ -35,11 +37,13 @@ class Victim:
         self.path = [self.start]
         self.position = [self.lat, self.lon]
         self.velocity=np.array(self._get_vectors()["net_current"])
+        self.logger.debug({"event": "victim_object_created", "data": {"id": self.id, "size":(x,y,z), "position":self.start, "velocity":str(self.velocity), "type":self.victim_type, "timedelta":self.dt, "mass":self.mass, "drag_coeff":self.drag_coeff}})
+        print(f"Victim {self.id} init running.")
 
     def _parse_type(self, input_type:str) -> str:
         allowed_types= ["piw","piw_lj"]
         if input_type.lower() not in allowed_types:
-            logger.critical(f"\"{type}\" is not a valid victim type.")
+            self.logger.critical({"message":f"\"{type}\" is not a valid victim type.", "event": "victim_type_error", "data": {"id": self.id, "type": input_type, "allowed_types": allowed_types}})
             raise ValueError("Invalid victim type. Please use a valid value.")
         else: return input_type
 
@@ -54,7 +58,9 @@ class Victim:
         return self.pi*x*z
 
     def _get_vectors(self):
-        return self.env.Query(self.lat, self.lon)
+        vector_dict = self.env.Query(self.lat, self.lon)
+        self.logger.debug({"event": f"victim_{self.id}_vector_fetch", "data":{"wind_vector": vector_dict["net_wind"], "current_vector": vector_dict["net_current"]}})
+        return vector_dict
 
     def F(self, v_rel) -> np.array:
         rho_water = float(self.config.get_value("environment.constants.water_density"))
@@ -73,7 +79,7 @@ class Victim:
             F_drag = np.array([0.0,0.0])
 
         F_net = F_drive - F_drag
-        logger.debug(f"Victim Forces - F_Drive:{F_drive}, F_Drag:{F_drag}, F_Net:{F_net}")
+        self.logger.debug({"message": f"Victim Forces - F_Drive:{F_drive}, F_Drag:{F_drag}, F_Net:{F_net}", "event": f"victim_{self.id}_force_calc", "data":{"water_density":rho_water, "victim_area":A, "F_drive":str(F_drive), "F_drag":str(F_drag), "F_net":str(F_net)}})
         return F_net
         
     def A(self, F: float) -> float:
@@ -86,8 +92,8 @@ class Victim:
 
     def X(self, V: np.ndarray):
         earth_rad = float(self.config.get_value("environment.constants.earth_radius"))
-        d_lat = (V[0] * self.dt) / earth_rad*(180/np.pi)
-        d_lon = (V[1] * self.dt) / (earth_rad*np.cos(np.radians(self.lat)))*(180/np.pi)
+        d_lat = (V[1] * self.dt) / earth_rad*(180/np.pi)
+        d_lon = (V[0] * self.dt) / (earth_rad*np.cos(np.radians(self.lat)))*(180/np.pi)
         return self.lat+d_lat, self.lon+d_lon
 
     def Displacement(self) -> float:
@@ -108,7 +114,7 @@ class Victim:
 
         return earth_rad*c # Distance in meters
 
-    def Update(self):
+    def Update(self, step:int=-1):
         steps = self._simulation_steps()
 
         for _ in range(steps):
@@ -118,11 +124,11 @@ class Victim:
             F_net = self.F(v_rel)
             A=self.A(F_net)
             self.velocity=self.V(A)
-            logger.debug(f"Victim Velocity - v_water:{v_water}, v_relative:{v_rel}, v_victim:{self.velocity}")
+            self.logger.debug({"message":f"Victim Velocity - v_water:{v_water}, v_relative:{v_rel}, v_victim:{self.velocity}", "step":step, "event": f"victim_{self.id}_velocity_update", "data":{"v_water":str(v_water), "v_rel":str(v_rel), "Force": str(F_net), "Acceleration": str(A), "Velocity": str(self.velocity)}})
             self.lat, self.lon = self.X(self.velocity)
 
             self.position = (self.lat, self.lon)
-            logger.debug(f"Victim position update: {self.position}")
+            self.logger.debug({"message": f"Victim position update: {self.position}", "step":step, "event":f"victim_{self.id}_position_update", "data":{"position": self.position, "displacement_from_start":self.Displacement()}})
             self.path.append(self.position)
 
         

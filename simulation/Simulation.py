@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
-import logging
+from typing import Optional
 
 from .Environment import Environment
 from .Visualizer import Visualizer
 from .Victim import Victim
 from application.config import Config
+from application.logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger(__name__).get()
 
 
 class Simulation:
@@ -34,8 +35,8 @@ class Simulation:
         self.current_step=0
         self.simulation_steps=self._calculate_steps()
 
-        logger.info("\033[32mSimulation initialized.\033[0m")
-        logger.debug(f"{self.lat=}, {self.lon=}, self.start={self.start.strftime('%d%b%Y %H:%M:%S')}, self.end={self.end.strftime('%d%b%Y %H:%M:%S')}, self.time_step={self.time_step.days*24+self.time_step.seconds//3600}h {(self.time_step.seconds%3600)//60}m {self.time_step.seconds%60}s, {self.simulation_steps=}")
+        logger.info({"message": "\033[32mSimulation initialized\033[0m"})
+        logger.debug({"event": "simulation_object_created", "data": {"Center": (lat,lon), "StartDate":self.start.isoformat(), "EndDate":self.end.isoformat(), "TimeDelta":str(self.time_step), "VictimCount":len(self.victims), "NumSteps":self.simulation_steps}})
 
     def _calculate_steps(self) -> int:
         current_time = self.start
@@ -50,17 +51,15 @@ class Simulation:
 
     def Tick(self):
         self.date += self.time_step
+        self.current_step+=1
         self.env.Update(self.date)
         for v in self.victims:
-            v.Update()
-        logger.info(f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}")
+            v.Update(self.current_step)
+        logger.info({"message": f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": f"tick_{self.current_step}|{self.simulation_steps}", "data":{"date": self.date.isoformat()}})
         
-    def RunSave(self):
-        self.vis.run()
-
-    def RunShow(self):
-        self.vis.run(True)
-
-    def RunSingle(self):
-        self.vis.plot(0, False)
-        self.vis.show()
+    def Run(self, file: Optional[str] = None, static:bool = False):
+        if static:
+            self.vis.plot(0)
+            self.vis.show()
+        else:
+            self.vis.run(file is None)

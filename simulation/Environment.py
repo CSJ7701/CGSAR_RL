@@ -8,14 +8,14 @@ import numpy as np
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from scipy.interpolate import RegularGridInterpolator
-import logging
 
 from application.config import Config
+from application.logger import Logger
 from .CurrentFetcher import CurrentFetcher
 from .DepthFetcher import DepthFetcher
 from .WindFetcher import WindFetcher
 
-logger = logging.getLogger(__name__)
+logger = Logger(__name__).get()
 
 class Environment:
     """
@@ -39,8 +39,8 @@ class Environment:
         self.margin = int(self.config.get_value("environment.settings.default_window_margin")) if margin == 0 else margin
         self.bounds = self._calculate_bounds()
         self.date = self._get_random_date() if not date else date
-        logger.info("\033[32mEnvironment initialized.\033[0m")
-        logger.debug(f"{self.config_path=} {self.center=} {self.margin=} {self.bounds=} {self.date=}")
+        logger.info({"message": "\033[32mEnvironment initialized.\033[0m"})
+        logger.debug({"event": "environment_object_created", "data": {"center": self.center, "margin":self.margin, "bounds":self.bounds, "date":self.date.isoformat()}})
 
 
         self.Update()
@@ -55,12 +55,12 @@ class Environment:
         """
         conversion_factor = self.config.get_value("environment.settings.degrees_per_mile")
         if not conversion_factor:
-            logging.warning(f"You must define a setting for 'environment.settings.degrees_per_mile' in {self.config_path}")
+            logger.warning({"message":f"You must define a setting for 'environment.settings.degrees_per_mile' in {self.config_path}", "event":"conversion_factor_error","data":{"config_path":self.config_path,"conversion_factor":conversion_factor}})
             raise ValueError("Error: Invalid setting for environment.settings.degrees_per_mile\nValue does not exist.")
         try:
             conversion_factor=float(conversion_factor)
         except ValueError:
-            logging.warning("The value for 'environment.settings.degrees_per_mile' must be an float value.")
+            logger.warning({"message":"The value for 'environment.settings.degrees_per_mile' must be an float value.", "event":"conversion_factor_error", "data":{"config_path":self.config_path, "conversion_factor":conversion_factor}})
             raise ValueError(f"Error: Invalid setting for environment.settings.degrees_per_mile\nValue '{conversion_factor}' is not a float.")
 
         lat = self.center[0]
@@ -73,7 +73,7 @@ class Environment:
         max_lat = lat + lat_margin
         min_lon = lon - lon_margin
         max_lon = lon + lon_margin
-        logger.debug("Environment bounds calculated successfully.")
+        logger.debug({"message": "Environment bounds calculated successfully.", "event":"calculate_bounds", "data":{"min_lat":min_lat,"max_lat":max_lat,"min_lon":min_lon,"max_lon":max_lon}})
 
         return (min_lat, max_lat, min_lon, max_lon)
 
@@ -91,8 +91,7 @@ class Environment:
         delta = end-start
         random_seconds = random.randint(0,int(delta.total_seconds()))
         result = start + timedelta(seconds=random_seconds)
-        logger.info("Random date generated successfully.")
-        logger.debug(f"Random date: {result}")
+        logger.info({"message":"Random date generated successfully.","event":"random_date","data":{"date":result.isoformat()}})
         return result
 
     def _create_interpolator(self, data: dict, u_key: str, v_key: str):
@@ -113,7 +112,7 @@ class Environment:
         :return: Surface current data.
         """
         fetcher = CurrentFetcher(self.config_path)
-        logger.debug("Current data fetched successfully.")
+        logger.debug({"message":"Current data fetched successfully.", "event": "current_fetch"})
         return fetcher.SurfaceCurrents(self.date, self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
     def DepthData(self):
@@ -123,7 +122,7 @@ class Environment:
         :return: Depth data.
         """
         fetcher = DepthFetcher(self.config_path)
-        logger.debug("Depth date fetched successfully.")
+        logger.debug({"message": "Depth date fetched successfully.", "event": "depth_fetch"})
         return fetcher.DepthData(self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
     def WindData(self):
@@ -133,7 +132,7 @@ class Environment:
         :return: Wind data.
         """
         fetcher = WindFetcher(self.config_path)
-        logger.debug("Wind data fetched successfully.")
+        logger.debug({"message": "Wind data fetched successfully.", "event": "wind_fetch"})
         return fetcher.WindData(self.date, self.bounds[0], self.bounds[1], self.bounds[2], self.bounds[3])
 
     def Update(self, date:Optional[datetime]=None):
@@ -145,7 +144,7 @@ class Environment:
         self.current_data = self.CurrentData()
         self.depth_data = self.DepthData()
         self.wind_data = self.WindData()
-        logger.debug(f"Environment data updated for {self.date.strftime('%d%b%Y %H:%M:%S')}")
+        logger.debug({"message": f"Environment data updated for {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": "environment_update", "data": {"date": self.date.isoformat()}})
 
     def Query(self, lat: float, lon: float) -> Dict[str, Tuple[float, float]]:
         """
@@ -158,13 +157,13 @@ class Environment:
         lat_min, lat_max, lon_min, lon_max = self.bounds
 
         if not (lat_min <= lat <= lat_max and lon_min <= lon <= lon_max):
-            logger.warning(f"Query point ({lat}, {lon}) is out of bounds!")
+            logger.warning({"message": f"Query point ({lat}, {lon}) is out of bounds!", "event": "environment_query_bounds_error", "data": {"lat_bounds": (lat_min, lat_max), "lon_bounds": (lon_min, lon_max), "lat": lat, "lon": lon}})
             raise ValueError(f"Coordinate ({lat}, {lon}) is out of bounds. Something went wrong.")
         
         u_wind, v_wind = self.wind_interpolator(lat, lon)
         u_cur, v_cur = self.current_interpolator(lat, lon)
-        #return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
-        return {"net_current": (u_wind.item(), v_wind.item())}
+        return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
+        #return {"net_current": (u_wind.item(), v_wind.item())}
 
 if __name__ == "__main__":
     lat = 30.0

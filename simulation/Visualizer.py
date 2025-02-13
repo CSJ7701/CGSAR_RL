@@ -1,3 +1,4 @@
+from typing import Optional
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import cartopy.crs as ccrs
@@ -5,14 +6,16 @@ import cartopy.feature as cfeature
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from datetime import timedelta
+
 import logging
+from application.logger import Logger
 
 plt.set_loglevel (level='warning')
 pil_logger = logging.getLogger('PIL')
 pil_logger.setLevel(logging.WARNING)
 conv_logger = logging.getLogger('h5py')
 conv_logger.setLevel(logging.WARNING)
-logger = logging.getLogger(__name__)
+logger = Logger(__name__).get()
 
 class Visualizer:
     def __init__(self, simulation):
@@ -24,7 +27,7 @@ class Visualizer:
         self.ax.coastlines()
         self.ax.add_feature(cfeature.LAND, facecolor='lightgray')
 
-        logger.info("\033[32mVisualizer initialized.\033[0m")
+        logger.info({"message": "\033[32mVisualizer initialized.\033[0m", "event":"visualizer_object_created"})
 
     def plot(self, current_step):
         env=self.sim.env
@@ -96,16 +99,18 @@ class Visualizer:
     def show(self):
         plt.show()
 
-    def run(self, show:bool=False):
+    def run(self, show:bool=False, file: Optional[str]=None):
         self.plot(0)
         steps = self.sim.simulation_steps
         ani = anim.FuncAnimation(self.fig, self.update, frames=steps, interval=500)
+        
         if show:
-            logger.info("\033[32mDisplaying plot...\033[0m")
+            logger.info({"message": "\033[32mDisplaying plot...\033[0m", "event": "plot_display"})
             plt.show()
         else:
-            ani.save("./test.mp4", writer=anim.FFMpegWriter())
-            logger.info("Animation saved to \033[32m./test.mp4\033[0m")
+            save_path=file if file else "./test.mp4"
+            ani.save(save_path, writer=anim.FFMpegWriter())
+            logger.info({"message": f"Animation saved to \033[32m{save_path}\033[0m", "event": "plot_save", "data": {"file": save_path}})
 
 
         
