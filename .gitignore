@@ -173,3 +173,5 @@ cython_debug/
 # Project Specifi
 *.nc
 *.~undo-tree~
+data/logs/*
+data/frames/*

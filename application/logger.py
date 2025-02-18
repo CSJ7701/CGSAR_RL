@@ -24,7 +24,7 @@ class MessageFormatter(logging.Formatter):
         return super().format(record)
 
 class Logger:
-    def __init__(self, name, run_id=None, file_prefix=None, log_dir="logs", level=logging.DEBUG, file_max_bytes=10*1024*1024, backup_count=20):
+    def __init__(self, name, run_id=None, file_prefix=None, log_dir="data/logs", level=logging.DEBUG, file_max_bytes=10*1024*1024, backup_count=20):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
         self.logger.propagate=False
@@ -42,8 +42,6 @@ class Logger:
         else:
             file_name = f"{file_prefix}_{run_id}.log"
         full_path = os.path.join(log_dir, file_name)
-
-        print(f"Object: {name}, File: {file_prefix}")
 
         file_handler=RotatingFileHandler(full_path, maxBytes=file_max_bytes, backupCount=backup_count, delay=True)
         file_handler.setFormatter(JsonFormatter())

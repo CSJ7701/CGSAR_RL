@@ -38,7 +38,6 @@ class Victim:
         self.position = [self.lat, self.lon]
         self.velocity=np.array(self._get_vectors()["net_current"])
         self.logger.debug({"event": "victim_object_created", "data": {"id": self.id, "size":(x,y,z), "position":self.start, "velocity":str(self.velocity), "type":self.victim_type, "timedelta":self.dt, "mass":self.mass, "drag_coeff":self.drag_coeff}})
-        print(f"Victim {self.id} init running.")
 
     def _parse_type(self, input_type:str) -> str:
         allowed_types= ["piw","piw_lj"]
@@ -59,7 +58,7 @@ class Victim:
 
     def _get_vectors(self):
         vector_dict = self.env.Query(self.lat, self.lon)
-        self.logger.debug({"event": f"victim_{self.id}_vector_fetch", "data":{"wind_vector": vector_dict["net_wind"], "current_vector": vector_dict["net_current"]}})
+        self.logger.debug({"event": f"victim_{self.id}_vector_fetch", "data":{"wind_vector": (float(vector_dict["net_wind"][0]), float(vector_dict["net_wind"][1])), "current_vector": (float(vector_dict["net_current"][0]), float(vector_dict["net_current"][1]))}})
         return vector_dict
 
     def F(self, v_rel) -> np.array:
@@ -79,10 +78,10 @@ class Victim:
             F_drag = np.array([0.0,0.0])
 
         F_net = F_drive - F_drag
-        self.logger.debug({"message": f"Victim Forces - F_Drive:{F_drive}, F_Drag:{F_drag}, F_Net:{F_net}", "event": f"victim_{self.id}_force_calc", "data":{"water_density":rho_water, "victim_area":A, "F_drive":str(F_drive), "F_drag":str(F_drag), "F_net":str(F_net)}})
+        self.logger.debug({"message": f"Victim Forces - F_Drive:{(float(F_drive[0]), float(F_drive[1]))}, F_Drag:{(float(F_drag[0]), float(F_drag[1]))}, F_Net:{(float(F_net[0]), float(F_net[1]))}", "event": f"victim_{self.id}_force_calc", "data":{"water_density":rho_water, "victim_area":A, "F_drive":(float(F_drive[0]), float(F_drive[1])), "F_drag":(float(F_drag[0]),float(F_drag[1])), "F_net":(float(F_net[0]), float(F_net[1]))}})
         return F_net
         
-    def A(self, F: float) -> float:
+    def A(self, F):
         m = self.mass
         return F/m
 
@@ -124,11 +123,11 @@ class Victim:
             F_net = self.F(v_rel)
             A=self.A(F_net)
             self.velocity=self.V(A)
-            self.logger.debug({"message":f"Victim Velocity - v_water:{v_water}, v_relative:{v_rel}, v_victim:{self.velocity}", "step":step, "event": f"victim_{self.id}_velocity_update", "data":{"v_water":str(v_water), "v_rel":str(v_rel), "Force": str(F_net), "Acceleration": str(A), "Velocity": str(self.velocity)}})
+            self.logger.debug({"message":f"Victim Velocity - v_water:{(float(v_water[0]), float(v_water[1]))}, v_relative:{(float(v_rel[0]), float(v_rel[1]))}, v_victim:{(float(self.velocity[0]), float(self.velocity[1]))}", "step":step, "event": f"victim_{self.id}_velocity_update", "data":{"v_water":(float(v_water[0]),float(v_water[1])), "v_rel":(float(v_rel[0]),float(v_rel[1])), "Force": (float(F_net[0]),float(F_net[1])), "Acceleration": (float(A[0]),float(A[1])), "Velocity": (float(self.velocity[0]),float(self.velocity[1]))}})
             self.lat, self.lon = self.X(self.velocity)
 
             self.position = (self.lat, self.lon)
-            self.logger.debug({"message": f"Victim position update: {self.position}", "step":step, "event":f"victim_{self.id}_position_update", "data":{"position": self.position, "displacement_from_start":self.Displacement()}})
+            self.logger.debug({"message": f"Victim position update: {self.position}", "step":step, "event":f"victim_{self.id}_position_update", "data":{"position": (float(self.position[0]), float(self.position[0])), "displacement_from_start":self.Displacement()}})
             self.path.append(self.position)
 
         

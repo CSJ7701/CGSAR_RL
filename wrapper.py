@@ -4,6 +4,7 @@ from datetime import datetime
 
 from application.logger import Logger
 from simulation.Simulation import Simulation
+from simulation.Visualizer import Visualizer
 from simulation.Victim import Victim
 
 import random
@@ -34,12 +35,11 @@ def generate_victims(config: dict, env, config_path:str):
         victim = Victim(xy_p, xy_p, z_p, lat_p, lon_p, victim_type, env, config_path, i+1)
 
         victims.append(victim)
-        print(f"Number of victims: {i+1}, Length of victim array: {len(victims)}")
     return victims
 
 # Victim Config
 config = {
-    'N': 2,  # Number of victims to generate
+    'N': 20,  # Number of victims to generateo
     'lat': 30.1,  # Latitude
     'lon': -80.0,  # Longitude
     'range_miles': 2,  # Range for perturbations in miles
@@ -69,11 +69,12 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 1, 00,30,00)
+end_date = datetime(2023, 1, 1, 2,00,00)
 
 logger.info({"event": "simulation_start", "message": "Starting Simulation", "data": {"Center": (lat, lon), "StartDate": str(start_date.isoformat()), "EndData": str(end_date.isoformat())}})
 
 s = Simulation(lat, lon, config_path, start_date, end_date)
+
 #v1=Victim(10,10,10, 30.1, -80.0, "piw", s.env, config_path, 1)
 #v2=Victim(0.5,0.5,3, 30.3, -80.0, "piw", s.env, config_path, 2)
 #s._add_victim(v1)
@@ -83,7 +84,10 @@ victims = generate_victims(config, s.env, config_path)
 for v in victims:
     s._add_victim(v)
 
-s.Run(file='test.mp4')
+#s.Animate(file='test.mp4')
+s.Run()
+vis = Visualizer(s.hdf5_path)
+vis.run()
 
 #mps = v.Displacement()/((end_date-start_date).total_seconds())
 #print(f"START: {v.start} --- END: {v.position} --- Displacement: {v.Displacement()} --- Avg Vel: {mps}")

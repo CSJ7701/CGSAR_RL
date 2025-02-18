@@ -20,6 +20,8 @@ copernicusmarine = "^2.0.0"
 xarray = "^2025.1.1"
 cartopy = "^0.24.1"
 scipy = "^1.15.1"
+pyinstrument = "^5.0.1"
+h5py = "^3.12.1"
 
 
 [build-system]

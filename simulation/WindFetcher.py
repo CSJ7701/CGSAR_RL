@@ -94,7 +94,7 @@ class WindFetcher:
         """
         "Retrieves wind data for a given date and geographical bounds.
 
-        :param date: Date string, in IDO format.
+        :param date: Date string, in ISO format.
         :param min_lat: Minimum latitude.
         :param max_lat: Maximum latitude.
         :param min_lon: Minimum longitude.
