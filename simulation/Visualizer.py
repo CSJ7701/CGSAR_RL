@@ -1,6 +1,7 @@
 from typing import Optional
 import h5py
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import matplotlib.animation as anim
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -78,22 +79,44 @@ class Visualizer:
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
         self.wind_interpolator_v = RegularGridInterpolator((wind_lat, wind_lon), vw, bounds_error=False, fill_value=0)
 
+    def _create_transparent_colormap(self):
+        """Creates a colormap that is transparent for low values."""
+
+        # Generate colors for our custom colormap
+        colors = [(0, 0, 0, 0)]  # Start with transparent
+        cmap = plt.get_cmap('hot')
+        for i in range(1, 256):
+            colors.append((*cmap(i)[:3], i/255))  # Gradually increase opacity
+
+        return mcolors.LinearSegmentedColormap.from_list('custom_hot', colors)
+    
     def _heatmap(self):
         """Creates a numpy histogram. This should move somewhere else later."""
         particle_lons = self.victim_positions[:,1]
         particle_lats = self.victim_positions[:,0]
 
-        heatmap, x_edges, y_edges = np.histogram2d(
-            particle_lats, particle_lons, bins=[self.lat, self.lon]
-        )
-        print(heatmap)
+        lon_bins = np.linspace(self.lon.min(), self.lon.max(), len(self.lon))
+        lat_bins = np.linspace(self.lat.min(), self.lat.max(), len(self.lat))
 
-        return heatmap.T, x_edges, y_edges
+        heatmap, x_edges, y_edges = np.histogram2d(
+            particle_lons, particle_lats,
+            bins=[lon_bins, lat_bins]
+        )
+
+        heatmap = heatmap + 1e-10
+
+        # Normalize to [0,1]
+        if heatmap.max() > 0:
+            heatmap = heatmap / heatmap.max()
+
+        return heatmap.T, lon_bins, lat_bins
 
     def plot(self, step):
         self._load_step_data(step)
 
-        heatmap, _, _ = self._heatmap()
+        heatmap, x_edges, y_edges = self._heatmap()
+        print(f"heatmap shape: {heatmap.shape}, x_edges: {len(x_edges)}, y_edges: {len(y_edges)}")
+        print(f"Lon: {len(self.lon)} Lat: {len(self.lat)}")
         
         if not self.wind_interpolator_v or not self.wind_interpolator_u:
             logger.critical({
@@ -109,6 +132,17 @@ class Visualizer:
         depth_min, depth_max = np.nanmin(self.deptho), np.nanmax(self.deptho)
         self.depth_contour = self.ax.contourf(lon_grid, lat_grid, self.deptho, levels = np.linspace(depth_min, depth_max, 20), cmap='Blues', alpha=0.7)
 
+        # Heatmap
+        custom_cmap = self._create_transparent_colormap()
+        self.heatmap_img = self.ax.pcolormesh(
+            x_edges, y_edges, heatmap,
+            cmap=custom_cmap,
+            norm='log',
+            shading='flat',
+            alpha=0.5,
+            zorder=1
+        )
+        
         # Vectors
         self.currents = self.ax.quiver(lon_grid, lat_grid, self.uo, self.vo, color='red', alpha=0.7, label='Currents')
         self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
@@ -116,9 +150,7 @@ class Visualizer:
         # Victims
         self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='purple', marker='o', label='Victims', s=10)
         #self.victim_map = self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True)
-        self.heatmap_img = self.ax.imshow(
-            heatmap.T, extent=[self.lon.min(), self.lon.max(), self.lat.min(), self.lat.max()],
-            origin='lower', cmap='hot', shading='auto', alpha=0.5)
+
 
         self.ax.set_title(f"Surface Currents and Wind at Step {step}")
         self.ax.set_xlabel('Longitude')
@@ -151,18 +183,18 @@ class Visualizer:
         #self.ax.set_xlim(xlim)
         #self.ax.set_ylim(ylim)
 
-        heatmap, _, _ = self._heatmap()
-        self.heatmap_img.set_data(heatmap.T)
+        heatmap,_,_= self._heatmap()
+        self.heatmap_img.set_array(heatmap.ravel())
 
         self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
-        return self.currents, self.winds, self.victims
+        return self.currents, self.winds, self.victims, self.heatmap_img
     
     def show(self):
         plt.show()
 
     def run(self, show: bool = False, file: Optional[str] = None):
         self.plot(1)
-        ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 500)
+        ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 500, blit=False)
 
         if show:
             logger.info({
