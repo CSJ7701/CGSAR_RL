@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from ssl import VerifyFlags
 from typing import Optional
 import h5py
 import numpy as np
@@ -7,6 +8,7 @@ import xarray as xr
 from .Environment import Environment
 from .AnimationVisualizer import AnimationVisualizer
 from .Victim import Victim
+from .VictimGroup import VictimGroup
 from application.config import Config
 from application.logger import Logger
 
@@ -34,6 +36,7 @@ class Simulation:
         self.vis = AnimationVisualizer(self)
 
         self.victims=[]
+        self.victim_group: Optional[VictimGroup] = None
 
         self.current_step=0
         self.simulation_steps=self._calculate_steps()
@@ -55,6 +58,9 @@ class Simulation:
 
     def _add_victim(self, vic: Victim) -> None:
         self.victims.append(vic)
+
+    def _add_victim_group(self, vics: VictimGroup) -> None:
+        self.victim_group = vics
 
     def _write_frame(self, file, step_data):
         current_step = step_data.get("step_number", "unknown")
@@ -99,6 +105,7 @@ class Simulation:
                 "data": {"step": current_step, "key": key, "error": str(e)}
             })
             raise
+
                                  
     def Tick(self):
         self.date += self.time_step
@@ -106,8 +113,13 @@ class Simulation:
         self.env.Update(self.date)
         self.currents = self.env.current_data
         self.wind = self.env.wind_data
-        for v in self.victims:
-            v.Update(self.current_step)
+
+        if self.victim_group:
+            self.victim_group.update()
+        else:
+            for v in self.victims:
+                v.Update(self.current_step)
+                
         logger.info({"message": f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": f"tick_{self.current_step}|{self.simulation_steps}", "data":{"date": self.date.isoformat()}})
         
     def Animate(self, file: Optional[str] = None, static:bool = False):
@@ -124,27 +136,53 @@ class Simulation:
             for _ in range(0, self.simulation_steps):
                 self.Tick()
 
-                step_data = {
-                    "step_number": self.current_step,
-                    "timestamp": self.date.isoformat(),
-                    "victim_positions": np.array([v.position for v in self.victims]),
-                    "current": {
-                        "uo": self.currents.uo.values,
-                        "vo": self.currents.vo.values,
-                        "latitude": self.currents.latitude.values,
-                        "longitude": self.currents.longitude.values,
-                    },
-                    "wind": {
-                        "eastward_wind": self.wind.eastward_wind.values,
-                        "northward_wind": self.wind.northward_wind.values,
-                        "latitude": self.wind.latitude.values,
-                        "longitude": self.wind.longitude.values,
-                    },
-                    "depth": {
-                        "deptho": self.depth.deptho.values,
-                        "mask": self.depth.mask.values,
-                    },
-                    }
+                if not self.victim_group:
+                    # Step data for individual victims
+                    step_data = {
+                        "step_number": self.current_step,
+                        "timestamp": self.date.isoformat(),
+                        "victim_positions": np.array([v.position for v in self.victims]),
+                        "current": {
+                            "uo": self.currents.uo.values,
+                            "vo": self.currents.vo.values,
+                            "latitude": self.currents.latitude.values,
+                            "longitude": self.currents.longitude.values,
+                        },
+                        "wind": {
+                            "eastward_wind": self.wind.eastward_wind.values,
+                            "northward_wind": self.wind.northward_wind.values,
+                            "latitude": self.wind.latitude.values,
+                            "longitude": self.wind.longitude.values,
+                        },
+                        "depth": {
+                            "deptho": self.depth.deptho.values,
+                            "mask": self.depth.mask.values,
+                        },
+                        }
+                else:
+                    # Step data for victim group
+                    step_data = {
+                        "step_number": self.current_step,
+                        "timestamp": self.date.isoformat(),
+                        #"victim_positions": np.column_stack((self.victim_group.lats, self.victim_group.lons)),
+                        "victim_positions": self.victim_group.all_points(),
+                        "current": {
+                            "uo": self.currents.uo.values,
+                            "vo": self.currents.vo.values,
+                            "latitude": self.currents.latitude.values,
+                            "longitude": self.currents.longitude.values,
+                        },
+                        "wind": {
+                            "eastward_wind": self.wind.eastward_wind.values,
+                            "northward_wind": self.wind.northward_wind.values,
+                            "latitude": self.wind.latitude.values,
+                            "longitude": self.wind.longitude.values,
+                        },
+                        "depth": {
+                            "deptho": self.depth.deptho.values,
+                            "mask": self.depth.mask.values,
+                        },
+                        }
 
                 self.step_buffer.append(step_data)
 

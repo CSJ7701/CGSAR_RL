@@ -78,8 +78,23 @@ class Visualizer:
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
         self.wind_interpolator_v = RegularGridInterpolator((wind_lat, wind_lon), vw, bounds_error=False, fill_value=0)
 
+    def _heatmap(self):
+        """Creates a numpy histogram. This should move somewhere else later."""
+        particle_lons = self.victim_positions[:,1]
+        particle_lats = self.victim_positions[:,0]
+
+        heatmap, x_edges, y_edges = np.histogram2d(
+            particle_lats, particle_lons, bins=[self.lat, self.lon]
+        )
+        print(heatmap)
+
+        return heatmap.T, x_edges, y_edges
+
     def plot(self, step):
         self._load_step_data(step)
+
+        heatmap, _, _ = self._heatmap()
+        
         if not self.wind_interpolator_v or not self.wind_interpolator_u:
             logger.critical({
                 'message': "Wind interpolators not initialized.",
@@ -100,6 +115,10 @@ class Visualizer:
 
         # Victims
         self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='purple', marker='o', label='Victims', s=10)
+        #self.victim_map = self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True)
+        self.heatmap_img = self.ax.imshow(
+            heatmap.T, extent=[self.lon.min(), self.lon.max(), self.lat.min(), self.lat.max()],
+            origin='lower', cmap='hot', shading='auto', alpha=0.5)
 
         self.ax.set_title(f"Surface Currents and Wind at Step {step}")
         self.ax.set_xlabel('Longitude')
@@ -123,8 +142,17 @@ class Visualizer:
         
         self.currents.set_UVC(self.uo, self.vo)
         self.winds.set_UVC(uw_grid, vw_grid)
-        self.victims.set_offsets(self.victim_positions)
-        print(self.victim_positions)
+        self.victims.set_offsets(self.victim_positions[:, [1,0]])
+        #print(self.victim_positions)
+
+        #xlim, ylim = self.ax.get_xlim(), self.ax.get_ylim()
+        #self.victim_map[3].remove()
+        #self.victim_map=self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True, alpha=0.5, vmin=0)
+        #self.ax.set_xlim(xlim)
+        #self.ax.set_ylim(ylim)
+
+        heatmap, _, _ = self._heatmap()
+        self.heatmap_img.set_data(heatmap.T)
 
         self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
         return self.currents, self.winds, self.victims

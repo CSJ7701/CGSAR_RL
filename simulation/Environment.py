@@ -163,7 +163,37 @@ class Environment:
         u_wind, v_wind = self.wind_interpolator(lat, lon)
         u_cur, v_cur = self.current_interpolator(lat, lon)
         return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
-        #return {"net_current": (u_cur.item(), v_cur.item())}
+
+    def VectorizedQuery(self, lats, lons):
+        lats = np.asarray(lats)
+        lons = np.asarray(lons)
+        lat_min, lat_max, lon_min, lon_max = self.bounds
+
+        if not (np.all(lats >= lat_min) and np.all(lats <= lat_max) and
+                np.all(lons >= lon_min) and np.all(lons <= lon_max)):
+            logger.warning({"message": "One or more query points are out of bounds!", "event": "environment_query_bounds_error"})
+            raise ValueError("One or more query points are out of bounds!")
+
+        def get_current(lat, lon):
+            u_cur, v_cur = self.current_interpolator(lat, lon)
+            return u_cur.item(), v_cur.item()
+        def get_wind(lat, lon):
+            u_wind, v_wind = self.wind_interpolator(lat, lon)
+            return u_wind.item(), v_wind.item()
+
+        vectorized_get_current = np.vectorize(get_current, otypes=[float, float])
+        u_cur, v_cur = vectorized_get_current(lats, lons)
+        net_current = np.stack((u_cur, v_cur), axis=-1)
+
+        vectorized_get_wind = np.vectorize(get_wind, otypes=[float, float])
+        u_wind, v_wind = vectorized_get_wind(lats, lons)
+        net_wind = np.stack((u_wind, v_wind), axis=-1)
+
+        return {
+            "net_wind": net_wind,        # Shape: (n,2)
+            "net_current": net_current   # Shape: (n,2)
+        }
+
 
 if __name__ == "__main__":
     lat = 30.0

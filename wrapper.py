@@ -1,13 +1,16 @@
 import math
 import os
+import random
+import numpy as np
 from datetime import datetime
 
 from application.logger import Logger
+from simulation.VictimGroup import VictimGroup
 from simulation.Simulation import Simulation
 from simulation.Visualizer import Visualizer
 from simulation.Victim import Victim
 
-import random
+
 def generate_victims(config: dict, env, config_path:str):
     def miles_to_degrees(miles):
         radius_of_earth_miles = 3963.0
@@ -39,7 +42,7 @@ def generate_victims(config: dict, env, config_path:str):
 
 # Victim Config
 config = {
-    'N': 20,  # Number of victims to generateo
+    'N': 10,  # Number of victims to generateo
     'lat': 30.1,  # Latitude
     'lon': -80.0,  # Longitude
     'range_miles': 2,  # Range for perturbations in miles
@@ -69,7 +72,7 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 1, 2,00,00)
+end_date = datetime(2023, 1, 3, 00,00,00)
 
 logger.info({"event": "simulation_start", "message": "Starting Simulation", "data": {"Center": (lat, lon), "StartDate": str(start_date.isoformat()), "EndData": str(end_date.isoformat())}})
 
@@ -80,9 +83,20 @@ s = Simulation(lat, lon, config_path, start_date, end_date)
 #s._add_victim(v1)
 #s._add_victim(v2)
 
-victims = generate_victims(config, s.env, config_path)
-for v in victims:
-    s._add_victim(v)
+#victims = generate_victims(config, s.env, config_path)
+#for v in victims:
+#    s._add_victim(v)
+
+num_victims=20
+lats=30.1 + np.random.uniform(-0.05, 0.05, num_victims)
+lons=-80.0 + np.random.uniform(-0.05, 0.05, num_victims)
+x=np.full(num_victims, 0.5)
+y=np.full(num_victims, 0.5)
+z=np.full(num_victims, 1)
+v_type=np.full(num_victims, "piw")
+vics = VictimGroup(x=x, y=y, z=z, lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
+print(vics._simulation_steps())
+s._add_victim_group(vics)
 
 #s.Animate(file='test.mp4')
 s.Run()
