@@ -83,12 +83,27 @@ class Visualizer:
         """Creates a colormap that is transparent for low values."""
 
         # Generate colors for our custom colormap
-        colors = [(0, 0, 0, 0)]  # Start with transparent
-        cmap = plt.get_cmap('hot')
-        for i in range(1, 256):
-            colors.append((*cmap(i)[:3], i/255))  # Gradually increase opacity
+        colors = [(0.85, 0.8, 1.0, 0.3)]  # Start with transparent
+        color_stops = [
+            (0.0, (0.85, 0.8, 1.0)), # Light lilac
+            (0.3, (0.7, 0.4, 0.9)), # Medium Purple
+            (0.6, (0.5, 0.0, 0.8)), # Deep Purple
+            (1.0, (0.3, 0.0, 0.5))  # Dark violet
+        ]
 
-        return mcolors.LinearSegmentedColormap.from_list('custom_hot', colors)
+        for i in range(1, 256):
+            t=i/255.0
+            for j in range(len(color_stops)-1):
+                if t <= color_stops[j+1][0]:
+                    t_local = (t-color_stops[j][0]) / (color_stops[j+1][0] - color_stops[j][0])
+                    c1 = color_stops[j][1]
+                    c2 = color_stops[j+1][1]
+                    r = c1[0] + (c2[0] - c1[0]) * t_local
+                    g = c1[1] + (c2[1] - c1[1]) * t_local
+                    b = c1[2] + (c2[2] - c1[2]) * t_local
+                    colors.append((r,g,b,t))
+                    break
+        return mcolors.LinearSegmentedColormap.from_list('custom_purple', colors)
     
     def _heatmap(self):
         """Creates a numpy histogram. This should move somewhere else later."""
@@ -103,7 +118,7 @@ class Visualizer:
             bins=[lon_bins, lat_bins]
         )
 
-        heatmap = heatmap + 1e-10
+        #heatmap = heatmap + 1e-10
 
         # Normalize to [0,1]
         if heatmap.max() > 0:
@@ -139,8 +154,8 @@ class Visualizer:
             cmap=custom_cmap,
             norm='log',
             shading='flat',
-            alpha=0.5,
-            zorder=1
+            alpha=0.8,
+            zorder=1,
         )
         
         # Vectors

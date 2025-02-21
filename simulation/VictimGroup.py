@@ -86,43 +86,6 @@ class VictimGroup:
     def _csa(self, x, z):
         return self.pi * x * z
 
-    def _forces(self):
-        water_currents = self.env.VectorizedQuery(self.lats, self.lons)
-        v_rel = water_currents["net_current"] - self.velocities
-        norm_v_rel = np.linalg.norm(v_rel, axis=1)
-        unit_v_rel = np.zeros_like(v_rel)
-        nonzero = norm_v_rel > 0
-        unit_v_rel[nonzero] = (v_rel[nonzero].T / norm_v_rel[nonzero]).T
-        norm_sq = norm_v_rel**2
-
-        F_drive = (self.water_density * self.areas * norm_sq)[:,None] * unit_v_rel
-        F_drag = (self.drag_coeffs * self.water_density * self.areas * norm_sq)[:, None] * unit_v_rel
-        F_net = F_drive - F_drag
-
-        self.logger.debug({
-            "event": "forces_computed",
-            "data": {
-                "mean_force": F_net.mean(axis=0).tolist()
-            }})
-        return F_net
-
-    def _acceleration(self, F_net):
-        accelerations = F_net / self.masses[:,None]
-        self.logger.debug({
-            "event": "acceleration_computed",
-            "data": {
-                "mean_acceleration": accelerations.mean(axis=0).tolist()
-            }})
-        return accelerations
-
-    def _velocity(self, accelerations):
-        self.velocities += accelerations * self.dt
-        self.logger.debug({
-            "event": "velocity_updated",
-            "data": {
-                "mean_velocity": self.velocities.mean(axis=0).tolist()
-            }})
-
     def _position(self):
         d_lat = (self.velocities[:,1] * self.dt) / self.earth_rad * (180/self.pi)
         d_lon = (self.velocities[:,0] * self.dt) / (self.earth_rad * np.cos(np.radians(self.lats))) * (180 / self.pi)
@@ -159,9 +122,7 @@ class VictimGroup:
         steps = self._simulation_steps()
 
         for step in range(steps):
-            F_net = self._forces()
-            accelerations = self._acceleration(F_net)
-            self._velocity(accelerations)
+            self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
             self._position()
             self._update_point_cloud()
             self.logger.debug({"event": "update_step", "step": step})
