@@ -38,6 +38,7 @@ class VictimGroup:
         # Set up point cloud
         self.num_cloud_points = int(self.config.get_value("victims.cloud_points"))
         self.point_cloud_noise = float(self.config.get_value("victims.cloud_noise"))
+        self.point_cloud_noise_radians = float(self.config.get_value("victims.cloud_angle_noise"))
         num_victims = len(self.lats)
         self.cloud_positions = np.zeros((num_victims, self.num_cloud_points, 2))
 
@@ -100,24 +101,50 @@ class VictimGroup:
             }})
 
     def _update_point_cloud(self):
-        """
-        Update each point in the point cloud as an absolute coordinate.
-        Each cloud point is updated by adding the parent's displacement (computed from velocity)
-        plus a small perturbation.
-        """
-        # Compute displacement
-        d_lat = (self.velocities[:,1] * self.dt) / self.earth_rad * (180/self.pi)
-        d_lon = (self.velocities[:,0] * self.dt) / (self.earth_rad * np.cos(np.radians(self.lats))) * (180 / self.pi)
-        displacement = np.stack((d_lat, d_lon), axis=1) # Shape: (num_victims, 2)
+        num_points = self.cloud_positions.shape[1]
 
-        # Random perturbation for each point in the cloud
-        noise = np.random.normal(0, self.point_cloud_noise, self.cloud_positions.shape)
-        # Update cloud positions: new_point = old_point + parent's displacement + noise
-        self.cloud_positions += displacement[:, None, :] + noise
-        self.logger.debug({"event": "point_cloud_update",
-                           "data": {"mean_cloud_lat": float(np.mean(self.cloud_positions[:,:,0])),
-                                    "mean_cloud_lon": float(np.mean(self.cloud_positions[:,:,1]))}})
+        parent_velocity = np.repeat(self.velocities[:,None,:], num_points, axis=1)
 
+        # Update probability
+        p_update = float(self.config.get_value("victims.cloud_deviation_chance"))
+        update_mask = np.random.rand(parent_velocity.shape[0], parent_velocity.shape[1]) < p_update  # How this work?
+
+        # Parent's vel in polar coords
+        v_base = parent_velocity[update_mask]
+        vx = v_base[:,0]
+        vy = v_base[:,1]
+        speed = np.sqrt(vx**2 + vy**2)
+        angle = np.arctan2(vx,vy)
+
+        # Add small angle perturbation (radians)
+        angle_noise = np.random.normal(0, self.point_cloud_noise_radians, angle.shape)
+        new_angle = angle+angle_noise
+
+        # Re-compute velocity using new angle
+        # Keep original magnitude as close as possible
+        new_vx = speed*np.cos(new_angle)
+        new_vy = speed*np.sin(new_angle)
+
+        cloud_velocities = parent_velocity.copy()
+        cloud_velocities[update_mask] = np.stack((new_vx, new_vy), axis=1)
+
+        # Cloud positions
+        cloud_lats = self.cloud_positions[:,:,0]
+
+        d_lat = (cloud_velocities[:,:,1] * self.dt) / self.earth_rad * (180/self.pi)
+        d_lon = (cloud_velocities[:,:,0] * self.dt) / (self.earth_rad*np.cos(np.radians(cloud_lats))) * (180/self.pi)
+        displacement = np.stack((d_lat, d_lon), axis=2)
+
+        self.cloud_positions += displacement
+        
+        self.logger.debug({
+            "event": "point_cloud_update",
+            "data": {
+                "mean_cloud_lat": float(np.mean(self.cloud_positions[:, :, 0])),
+                "mean_cloud_lon": float(np.mean(self.cloud_positions[:, :, 1]))
+            }
+        })
+        
     def update(self):
         steps = self._simulation_steps()
 
