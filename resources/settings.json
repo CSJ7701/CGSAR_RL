@@ -49,8 +49,8 @@
     "victims": {
 	"cloud_points": 20,
 	"cloud_noise": 0.000,
-	"cloud_angle_noise": 0.1,
-	"cloud_deviation_chance": 0.2,
+	"cloud_angle_noise": 1.5,
+	"cloud_deviation_chance": 0.5,
         "piw": {
             "density": 985,
             "avg_mass": 10,

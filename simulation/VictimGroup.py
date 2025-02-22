@@ -117,7 +117,7 @@ class VictimGroup:
         angle = np.arctan2(vx,vy) # Order?
 
         # Add small angle perturbation (radians)
-        angle_noise = np.random.normal(-10, self.point_cloud_noise_radians, angle.shape)
+        angle_noise = np.random.normal(0, self.point_cloud_noise_radians, angle.shape)
         new_angle = angle-angle_noise
 
         # Re-compute velocity using new angle
@@ -126,7 +126,7 @@ class VictimGroup:
         new_vy = speed*np.sin(new_angle)
 
         cloud_velocities = parent_velocity.copy()
-        cloud_velocities[update_mask] = np.stack((new_vx, new_vy), axis=1)
+        cloud_velocities[update_mask] = np.column_stack((new_vy, new_vx))
 
         # Cloud positions
         cloud_lats = self.cloud_positions[:,:,0]
