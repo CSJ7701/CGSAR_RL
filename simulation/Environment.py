@@ -44,8 +44,8 @@ class Environment:
 
 
         self.Update()
-        self.wind_interpolator = self._create_interpolator(self.wind_data, "eastward_wind", "northward_wind")
-        self.current_interpolator = self._create_interpolator(self.current_data, "uo", "vo")
+        self.wind_interpolator = self._create_vectorized_interpolator(self.wind_data, "eastward_wind", "northward_wind")
+        self.current_interpolator = self._create_vectorized_interpolator(self.current_data, "uo", "vo")
         
     def _calculate_bounds(self) -> Tuple[float,float,float,float]:
         """
@@ -104,6 +104,21 @@ class Environment:
         v_interp = RegularGridInterpolator((latitudes, longitudes), v_val, bounds_error=False, fill_value=None)
 
         return lambda lat, lon: (u_interp((lat, lon)), v_interp((lat, lon)))
+
+    def _create_vectorized_interpolator(self, data: dict, u_key: str, v_key: str):
+        latitudes = np.array(data["latitude"])
+        longitudes = np.array(data["longitude"])
+        u_val = np.array(data[u_key])
+        v_val = np.array(data[v_key])
+
+        u_interp = RegularGridInterpolator((latitudes, longitudes), u_val, bounds_error=False, fill_value=None)
+        v_interp = RegularGridInterpolator((latitudes, longitudes), v_val, bounds_error=False, fill_value=None)
+
+        def interpolator(lats, lons):
+            points = np.column_stack((lats, lons))  # Vectorized query
+            return u_interp(points), v_interp(points)
+
+        return interpolator
 
     def CurrentData(self):
         """
@@ -174,19 +189,10 @@ class Environment:
             logger.warning({"message": "One or more query points are out of bounds!", "event": "environment_query_bounds_error"})
             raise ValueError("One or more query points are out of bounds!")
 
-        def get_current(lat, lon):
-            u_cur, v_cur = self.current_interpolator(lat, lon)
-            return u_cur.item(), v_cur.item()
-        def get_wind(lat, lon):
-            u_wind, v_wind = self.wind_interpolator(lat, lon)
-            return u_wind.item(), v_wind.item()
-
-        vectorized_get_current = np.vectorize(get_current, otypes=[float, float])
-        u_cur, v_cur = vectorized_get_current(lats, lons)
+        u_cur, v_cur = self.current_interpolator(lats, lons)
         net_current = np.stack((u_cur, v_cur), axis=-1)
 
-        vectorized_get_wind = np.vectorize(get_wind, otypes=[float, float])
-        u_wind, v_wind = vectorized_get_wind(lats, lons)
+        u_wind, v_wind = self.wind_interpolator(lats, lons)
         net_wind = np.stack((u_wind, v_wind), axis=-1)
 
         return {

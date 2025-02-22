@@ -8,7 +8,7 @@
             "longitude_min": -82.0,
             "longitude_max": -75.0,
             "simulation_timedelta_minutes": 10,
-            "victim_timedelta_seconds": 10
+            "victim_timedelta_seconds": 30
         },
         "constants": {
             "pi": 3.14159,
@@ -49,7 +49,7 @@
     "victims": {
 	"cloud_points": 20,
 	"cloud_noise": 0.000,
-	"cloud_angle_noise": 1.5,
+	"cloud_angle_noise": 0.5,
 	"cloud_deviation_chance": 0.5,
         "piw": {
             "density": 985,
