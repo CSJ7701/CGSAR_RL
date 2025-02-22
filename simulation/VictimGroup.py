@@ -114,11 +114,11 @@ class VictimGroup:
         vx = v_base[:,0]
         vy = v_base[:,1]
         speed = np.sqrt(vx**2 + vy**2)
-        angle = np.arctan2(vx,vy)
+        angle = np.arctan2(vx,vy) # Order?
 
         # Add small angle perturbation (radians)
-        angle_noise = np.random.normal(0, self.point_cloud_noise_radians, angle.shape)
-        new_angle = angle+angle_noise
+        angle_noise = np.random.normal(-10, self.point_cloud_noise_radians, angle.shape)
+        new_angle = angle-angle_noise
 
         # Re-compute velocity using new angle
         # Keep original magnitude as close as possible

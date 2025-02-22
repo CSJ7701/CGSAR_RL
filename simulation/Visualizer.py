@@ -163,7 +163,7 @@ class Visualizer:
         self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
-        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='purple', marker='o', label='Victims', s=10)
+        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=2)
         #self.victim_map = self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True)
 
 
