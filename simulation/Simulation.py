@@ -33,10 +33,7 @@ class Simulation:
         self.depth=self.env.depth_data
         self.wind=self.env.wind_data
 
-        self.vis = AnimationVisualizer(self)
-
-        self.victims=[]
-        self.victim_group: Optional[VictimGroup] = None
+        self.victim_group: VictimGroup
 
         self.current_step=0
         self.simulation_steps=self._calculate_steps()
@@ -46,7 +43,7 @@ class Simulation:
         self.step_buffer = []
 
         logger.info({"message": "\033[32mSimulation initialized\033[0m"})
-        logger.debug({"event": "simulation_object_created", "data": {"Center": (lat,lon), "StartDate":self.start.isoformat(), "EndDate":self.end.isoformat(), "TimeDelta":str(self.time_step), "VictimCount":len(self.victims), "NumSteps":self.simulation_steps}})
+        logger.debug({"event": "simulation_object_created", "data": {"Center": (lat,lon), "StartDate":self.start.isoformat(), "EndDate":self.end.isoformat(), "TimeDelta":str(self.time_step), "NumSteps":self.simulation_steps}})
 
     def _calculate_steps(self) -> int:
         current_time = self.start
@@ -56,9 +53,26 @@ class Simulation:
             steps += 1
         return steps
 
-    def _add_victim(self, vic: Victim) -> None:
-        self.victims.append(vic)
+    def _heatmap(self):
+        grid_lons = self.currents.longitude.values
+        grid_lats = self.currents.latitude.values
+        
+        particle_lons = self.victim_group.lons
+        particle_lats = self.victim_group.lats
 
+        lon_bins = np.linspace(grid_lons.min(), grid_lons.max(), 5*len(grid_lons))
+        lat_bins = np.linspace(grid_lats.min(), grid_lats.max(), 5*len(grid_lats))
+
+        heatmap, x_edges, y_edges = np.histogram2d(
+            particle_lons, particle_lats,
+            bins=[lon_bins, lat_bins]
+        )
+
+        if heatmap.max() > 0:
+            heatmap = heatmap / heatmap.max()
+
+        return heatmap.T, lon_bins, lat_bins
+        
     def _add_victim_group(self, vics: VictimGroup) -> None:
         self.victim_group = vics
 
@@ -116,9 +130,7 @@ class Simulation:
 
         if self.victim_group:
             self.victim_group.update()
-        else:
-            for v in self.victims:
-                v.Update(self.current_step)
+            self.heatmap, self.heatmap_lon_bins, self.heatmap_lat_bins = self._heatmap()
                 
         logger.info({"message": f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": f"tick_{self.current_step}|{self.simulation_steps}", "data":{"date": self.date.isoformat()}})
         
@@ -136,53 +148,32 @@ class Simulation:
             for _ in range(0, self.simulation_steps):
                 self.Tick()
 
-                if not self.victim_group:
-                    # Step data for individual victims
-                    step_data = {
-                        "step_number": self.current_step,
-                        "timestamp": self.date.isoformat(),
-                        "victim_positions": np.array([v.position for v in self.victims]),
-                        "current": {
-                            "uo": self.currents.uo.values,
-                            "vo": self.currents.vo.values,
-                            "latitude": self.currents.latitude.values,
-                            "longitude": self.currents.longitude.values,
-                        },
-                        "wind": {
-                            "eastward_wind": self.wind.eastward_wind.values,
-                            "northward_wind": self.wind.northward_wind.values,
-                            "latitude": self.wind.latitude.values,
-                            "longitude": self.wind.longitude.values,
-                        },
-                        "depth": {
-                            "deptho": self.depth.deptho.values,
-                            "mask": self.depth.mask.values,
-                        },
-                        }
-                else:
-                    # Step data for victim group
-                    step_data = {
-                        "step_number": self.current_step,
-                        "timestamp": self.date.isoformat(),
-                        #"victim_positions": np.column_stack((self.victim_group.lats, self.victim_group.lons)),
+                step_data = {
+                    "step_number": self.current_step,
+                    "timestamp": self.date.isoformat(),
+                    "victims": {
                         "victim_positions": self.victim_group.all_points(),
-                        "current": {
-                            "uo": self.currents.uo.values,
-                            "vo": self.currents.vo.values,
-                            "latitude": self.currents.latitude.values,
-                            "longitude": self.currents.longitude.values,
-                        },
-                        "wind": {
-                            "eastward_wind": self.wind.eastward_wind.values,
-                            "northward_wind": self.wind.northward_wind.values,
-                            "latitude": self.wind.latitude.values,
-                            "longitude": self.wind.longitude.values,
-                        },
-                        "depth": {
-                            "deptho": self.depth.deptho.values,
-                            "mask": self.depth.mask.values,
-                        },
-                        }
+                        "heatmap": self.heatmap,
+                        "heatmap_lon_bin": self.heatmap_lon_bins,
+                        "heatmap_lat_bin": self.heatmap_lat_bins,
+                    },
+                    "current": {
+                        "uo": self.currents.uo.values,
+                        "vo": self.currents.vo.values,
+                        "latitude": self.currents.latitude.values,
+                        "longitude": self.currents.longitude.values,
+                    },
+                    "wind": {
+                        "eastward_wind": self.wind.eastward_wind.values,
+                        "northward_wind": self.wind.northward_wind.values,
+                        "latitude": self.wind.latitude.values,
+                        "longitude": self.wind.longitude.values,
+                    },
+                    "depth": {
+                        "deptho": self.depth.deptho.values,
+                        "mask": self.depth.mask.values,
+                    },
+                }
 
                 self.step_buffer.append(step_data)
 

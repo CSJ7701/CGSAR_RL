@@ -87,7 +87,7 @@ s = Simulation(lat, lon, config_path, start_date, end_date)
 #for v in victims:
 #    s._add_victim(v)
 
-num_victims=50
+num_victims=1000
 lats=30.3 + np.random.uniform(-0.05, 0.05, num_victims)
 lons=-80.0 + np.random.uniform(-0.05, 0.05, num_victims)
 x=np.full(num_victims, 0.5)

@@ -2,15 +2,18 @@
     "environment": {
         "settings": {
             "degrees_per_mile": 69.172,
-            "default_window_margin": 500,
+            "default_window_margin": 150,
             "latitude_min": 25.0,
             "latitude_max": 35.0,
             "longitude_min": -82.0,
-            "longitude_max": -75.0
+            "longitude_max": -75.0,
+            "simulation_timedelta_minutes": 10,
+            "victim_timedelta_seconds": 30
         },
         "constants": {
-	    "pi": 3.14159,
+            "pi": 3.14159,
             "earth_rotational_vel": 7.292e-05,
+            "earth_radius": 6371000,
             "water_density": 1025
         }
     },
@@ -33,8 +36,8 @@
             },
             "current": {
                 "file": "current.nc",
-                "updated": "2025-01-27T08:44:04",
-                "ID": "cmems_mod_glo_phy-cur_anfc_0.083deg_P1D-m"
+                "updated": "2025-02-18T11:08:31",
+                "ID": "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m"
             },
             "wind": {
                 "file": "wind.nc",
@@ -44,11 +47,19 @@
         }
     },
     "victims": {
-	"piw": {
-	},
-	"lifejacket": {
-	},
-	"liferaft": {
-	}
+	"cloud_points": 0,
+	"cloud_noise": 0.000,
+	"cloud_angle_noise": 0.5,
+	"cloud_deviation_chance": 0.5,
+        "piw": {
+            "density": 985,
+            "avg_mass": 10,
+            "drag_coefficient": 0.5
+        },
+        "piw_lj": {
+            "density": 895,
+            "avg_mass": 8,
+            "drag_coefficient": 0.5
+        }
     }
 }

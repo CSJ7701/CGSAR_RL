@@ -144,7 +144,7 @@ class VictimGroup:
                 "mean_cloud_lon": float(np.mean(self.cloud_positions[:, :, 1]))
             }
         })
-        
+
     def update(self):
         steps = self._simulation_steps()
 

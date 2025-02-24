@@ -57,6 +57,8 @@ class Visualizer:
             current = step_group['current']
             depth = step_group['depth']
             wind = step_group['wind']
+            victims = step_group['victims']
+            
             self.lat = current['latitude'][:]
             self.lon = current['longitude'][:]
             self.uo = current['uo'][:]
@@ -70,8 +72,11 @@ class Visualizer:
 
             self._create_interpolators(wind_lat, wind_lon, uw, vw)
 
-            if 'victim_positions' in step_group:
-                self.victim_positions = step_group['victim_positions'][:]
+            if 'victim_positions' in victims:
+                self.victim_positions = victims['victim_positions'][:]
+                self.heatmap = victims['heatmap'][:]
+                self.x_edges = victims['heatmap_lon_bin'][:]
+                self.y_edges = victims['heatmap_lat_bin'][:]
             else:
                 self.victim_positions = np.empty((0,2))
 
@@ -110,8 +115,8 @@ class Visualizer:
         particle_lons = self.victim_positions[:,1]
         particle_lats = self.victim_positions[:,0]
 
-        lon_bins = np.linspace(self.lon.min(), self.lon.max(), len(self.lon))
-        lat_bins = np.linspace(self.lat.min(), self.lat.max(), len(self.lat))
+        lon_bins = np.linspace(self.lon.min(), self.lon.max(), 5*len(self.lon))
+        lat_bins = np.linspace(self.lat.min(), self.lat.max(), 5*len(self.lat))
 
         heatmap, x_edges, y_edges = np.histogram2d(
             particle_lons, particle_lats,
@@ -129,9 +134,7 @@ class Visualizer:
     def plot(self, step):
         self._load_step_data(step)
 
-        heatmap, x_edges, y_edges = self._heatmap()
-        print(f"heatmap shape: {heatmap.shape}, x_edges: {len(x_edges)}, y_edges: {len(y_edges)}")
-        print(f"Lon: {len(self.lon)} Lat: {len(self.lat)}")
+        #heatmap, x_edges, y_edges = self._heatmap()
         
         if not self.wind_interpolator_v or not self.wind_interpolator_u:
             logger.critical({
@@ -150,7 +153,7 @@ class Visualizer:
         # Heatmap
         custom_cmap = self._create_transparent_colormap()
         self.heatmap_img = self.ax.pcolormesh(
-            x_edges, y_edges, heatmap,
+            self.x_edges, self.y_edges, self.heatmap,
             cmap=custom_cmap,
             norm='log',
             shading='flat',
