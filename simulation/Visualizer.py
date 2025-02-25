@@ -82,7 +82,6 @@ class Visualizer:
 
     def _load_trackline(self, trackline: dict[str, list]):
         self.trackline = trackline
-        print(trackline)
 
     def _create_interpolators(self, wind_lat, wind_lon, uw, vw):
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
@@ -175,14 +174,18 @@ class Visualizer:
         # Trackline
         if self.trackline:
             start_lat, start_lon = self.trackline["start"][0]
-            step1 = self.trackline["1"]
-            step1_lats = [coord[0] for coord in step1]
-            step1_lons = [coord[1] for coord in step1]
-            print("START PATH: " + str([[start_lat]+step1_lats, [start_lon]+step1_lons]))
-            self.trackline_plot, = self.ax.plot(
-                [start_lon] + step1_lons,
-                [start_lat] + step1_lats,
-                marker='x', linestyle='-', color='b')
+            if "1" in self.trackline:
+                step1 = self.trackline["1"]
+                step1_lats = [coord[0] for coord in step1]
+                step1_lons = [coord[1] for coord in step1]
+                self.trackline_plot, = self.ax.plot(
+                    [start_lon] + step1_lons,
+                    [start_lat] + step1_lats,
+                    marker='x', linestyle='-', color='b')
+            else:
+                self.trackline_plot, = self.ax.plot(
+                    [start_lon], [start_lat],
+                    marker='x', linestyle='-', color='b')
 
         self.ax.set_title(f"Surface Currents and Wind at Step {step}")
         self.ax.set_xlabel('Longitude')
@@ -214,14 +217,12 @@ class Visualizer:
         if self.trackline:
             steps = sorted(int(k) for k in self.trackline.keys() if k!="start")
             valid_steps = [str(s) for s in steps if s <= frame+1]
-            print(f"Valid steps for {frame+1}: {valid_steps}")
             lats = [coord[0] for coord in self.trackline["start"]]
             lons = [coord[1] for coord in self.trackline["start"]]
             for s in valid_steps:
                 if s in self.trackline:
                     lats.extend(coord[0] for coord in self.trackline[s])
                     lons.extend(coord[1] for coord in self.trackline[s])
-                    print(f"Step {frame+1}: " + str((lats, lons)))
                 
             self.trackline_plot.set_data(lons, lats)
 
@@ -233,7 +234,7 @@ class Visualizer:
 
     def run(self, show: bool = False, file: Optional[str] = None):
         self.plot(1)
-        self.ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 500, blit=False)
+        self.ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 100, blit=False)
 
         if show:
             logger.info({
