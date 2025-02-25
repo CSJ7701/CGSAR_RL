@@ -91,11 +91,10 @@ class VictimGroup:
             self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
 
             # Probability mask and stochastic velocity
-            noise_mask = np.random.rand(len(self.lats)) < 0.5 # Change into config parameter
-            noise = np.random.normal(loc=0, scale=2, size=self.velocities.shape) # Change into config parameter
+            noise = np.random.normal(loc=0, scale=2, size=self.velocities.shape) # Change into config parabmeter
 
             # Apply noise to masked values
-            self.velocities[noise_mask] += noise[noise_mask]
+            self.velocities += noise
             
             self._position()
             self.logger.debug({"event": "update_step", "step": step})
