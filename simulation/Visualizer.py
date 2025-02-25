@@ -31,13 +31,13 @@ class Visualizer:
         with h5py.File(self.data_file, "r") as f:
             self.total_steps = len(f.keys())  # Count number of steps stored
 
+        self.trackline = None
+
         logger.info({
             "message": "\033[32mVisualizer initialized.\033[0m",
             "event": "visualizer_object_created",
             "data": {"total_steps": self.total_steps, "h5py_file": self.data_file}
         })
-
-        print(self.total_steps)
 
     
     def _load_step_data(self, step_number):
@@ -79,6 +79,10 @@ class Visualizer:
                 self.y_edges = victims['heatmap_lat_bin'][:]
             else:
                 self.victim_positions = np.empty((0,2))
+
+    def _load_trackline(self, trackline: dict[str, list]):
+        self.trackline = trackline
+        print(trackline)
 
     def _create_interpolators(self, wind_lat, wind_lon, uw, vw):
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
@@ -166,9 +170,19 @@ class Visualizer:
         self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
-        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=2)
-        #self.victim_map = self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True)
+        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.2)
 
+        # Trackline
+        if self.trackline:
+            start_lat, start_lon = self.trackline["start"][0]
+            step1 = self.trackline["1"]
+            step1_lats = [coord[0] for coord in step1]
+            step1_lons = [coord[1] for coord in step1]
+            print("START PATH: " + str([[start_lat]+step1_lats, [start_lon]+step1_lons]))
+            self.trackline_plot, = self.ax.plot(
+                [start_lon] + step1_lons,
+                [start_lat] + step1_lats,
+                marker='x', linestyle='-', color='b')
 
         self.ax.set_title(f"Surface Currents and Wind at Step {step}")
         self.ax.set_xlabel('Longitude')
@@ -193,16 +207,23 @@ class Visualizer:
         self.currents.set_UVC(self.uo, self.vo)
         self.winds.set_UVC(uw_grid, vw_grid)
         self.victims.set_offsets(self.victim_positions[:, [1,0]])
-        #print(self.victim_positions)
-
-        #xlim, ylim = self.ax.get_xlim(), self.ax.get_ylim()
-        #self.victim_map[3].remove()
-        #self.victim_map=self.ax.hist2d(self.victim_positions[:,1], self.victim_positions[:,0], bins=(50,50), cmap='inferno', density=True, alpha=0.5, vmin=0)
-        #self.ax.set_xlim(xlim)
-        #self.ax.set_ylim(ylim)
 
         heatmap,_,_= self._heatmap()
         self.heatmap_img.set_array(heatmap.ravel())
+
+        if self.trackline:
+            steps = sorted(int(k) for k in self.trackline.keys() if k!="start")
+            valid_steps = [str(s) for s in steps if s <= frame+1]
+            print(f"Valid steps for {frame+1}: {valid_steps}")
+            lats = [coord[0] for coord in self.trackline["start"]]
+            lons = [coord[1] for coord in self.trackline["start"]]
+            for s in valid_steps:
+                if s in self.trackline:
+                    lats.extend(coord[0] for coord in self.trackline[s])
+                    lons.extend(coord[1] for coord in self.trackline[s])
+                    print(f"Step {frame+1}: " + str((lats, lons)))
+                
+            self.trackline_plot.set_data(lons, lats)
 
         self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
         return self.currents, self.winds, self.victims, self.heatmap_img
@@ -212,7 +233,7 @@ class Visualizer:
 
     def run(self, show: bool = False, file: Optional[str] = None):
         self.plot(1)
-        ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 500, blit=False)
+        self.ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 500, blit=False)
 
         if show:
             logger.info({

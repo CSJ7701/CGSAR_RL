@@ -35,20 +35,6 @@ class VictimGroup:
         # Initialize velocity from the current water state 
         self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
 
-        # Set up point cloud
-        self.num_cloud_points = int(self.config.get_value("victims.cloud_points"))
-        self.point_cloud_noise = float(self.config.get_value("victims.cloud_noise"))
-        self.point_cloud_noise_radians = float(self.config.get_value("victims.cloud_angle_noise"))
-        num_victims = len(self.lats)
-        self.cloud_positions = np.zeros((num_victims, self.num_cloud_points, 2))
-
-        for i in range(num_victims):
-            # For each victim, initialize the cloud as the parent's position plus small random offsets
-            lat_offsets = np.random.normal(0, self.point_cloud_noise, self.num_cloud_points)
-            lon_offsets = np.random.normal(0, self.point_cloud_noise, self.num_cloud_points)
-            self.cloud_positions[i, :, 0] = self.lats[i] + lat_offsets
-            self.cloud_positions[i, :, 1] = self.lons[i] + lon_offsets
-
         self.logger.debug({
             "event": "VictimGroup_created",
             "data": {
@@ -56,8 +42,6 @@ class VictimGroup:
                 "dt": self.dt,
                 "pi": self.pi,
                 "areas": self.areas.tolist(),
-                "cloud_points": self.num_cloud_points,
-                "cloud_noise": self.point_cloud_noise
             }
         })
 
@@ -100,58 +84,20 @@ class VictimGroup:
                 "mean_position": [float(np.mean(self.lats)), float(np.mean(self.lons))]
             }})
 
-    def _update_point_cloud(self):
-        num_points = self.cloud_positions.shape[1]
-
-        parent_velocity = np.repeat(self.velocities[:,None,:], num_points, axis=1)
-
-        # Update probability
-        p_update = float(self.config.get_value("victims.cloud_deviation_chance"))
-        update_mask = np.random.rand(parent_velocity.shape[0], parent_velocity.shape[1]) < p_update  # How this work?
-
-        # Parent's vel in polar coords
-        v_base = parent_velocity[update_mask]
-        vx = v_base[:,0]
-        vy = v_base[:,1]
-        speed = np.sqrt(vx**2 + vy**2)
-        angle = np.arctan2(vx,vy) # Order?
-
-        # Add small angle perturbation (radians)
-        angle_noise = np.random.normal(0, self.point_cloud_noise_radians, angle.shape)
-        new_angle = angle-angle_noise
-
-        # Re-compute velocity using new angle
-        # Keep original magnitude as close as possible
-        new_vx = speed*np.cos(new_angle)
-        new_vy = speed*np.sin(new_angle)
-
-        cloud_velocities = parent_velocity.copy()
-        cloud_velocities[update_mask] = np.column_stack((new_vy, new_vx))
-
-        # Cloud positions
-        cloud_lats = self.cloud_positions[:,:,0]
-
-        d_lat = (cloud_velocities[:,:,1] * self.dt) / self.earth_rad * (180/self.pi)
-        d_lon = (cloud_velocities[:,:,0] * self.dt) / (self.earth_rad*np.cos(np.radians(cloud_lats))) * (180/self.pi)
-        displacement = np.stack((d_lat, d_lon), axis=2)
-
-        self.cloud_positions += displacement
-        
-        self.logger.debug({
-            "event": "point_cloud_update",
-            "data": {
-                "mean_cloud_lat": float(np.mean(self.cloud_positions[:, :, 0])),
-                "mean_cloud_lon": float(np.mean(self.cloud_positions[:, :, 1]))
-            }
-        })
-
     def update(self):
         steps = self._simulation_steps()
 
         for step in range(steps):
             self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
+
+            # Probability mask and stochastic velocity
+            noise_mask = np.random.rand(len(self.lats)) < 0.5 # Change into config parameter
+            noise = np.random.normal(loc=0, scale=2, size=self.velocities.shape) # Change into config parameter
+
+            # Apply noise to masked values
+            self.velocities[noise_mask] += noise[noise_mask]
+            
             self._position()
-            self._update_point_cloud()
             self.logger.debug({"event": "update_step", "step": step})
 
     def all_points(self):

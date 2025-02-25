@@ -179,6 +179,16 @@ class Environment:
         u_cur, v_cur = self.current_interpolator(lat, lon)
         return {"net_wind": (u_wind.item(), v_wind.item()), "net_current": (u_cur.item(), v_cur.item())}
 
+    def DepthQuery(self, lat, lon):
+        lats = self.depth_data.latitudes.values
+        lons = self.depth_data.longitudes.values
+        depth_data = self.depth_data.deptho.values
+
+        lat_idx = np.abs(lats - lat).argmin()
+        lon_idx = np.abs(lons - lon).argmin()
+
+        return depth_data[lat_idx, lon_idx]
+
     def VectorizedQuery(self, lats, lons):
         lats = np.asarray(lats)
         lons = np.asarray(lons)

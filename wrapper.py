@@ -72,7 +72,7 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 3, 00,00,00)
+end_date = datetime(2023, 1, 4, 00,00,00)
 
 logger.info({"event": "simulation_start", "message": "Starting Simulation", "data": {"Center": (lat, lon), "StartDate": str(start_date.isoformat()), "EndData": str(end_date.isoformat())}})
 
@@ -87,7 +87,7 @@ s = Simulation(lat, lon, config_path, start_date, end_date)
 #for v in victims:
 #    s._add_victim(v)
 
-num_victims=1000
+num_victims=2000
 lats=30.3 + np.random.uniform(-0.05, 0.05, num_victims)
 lons=-80.0 + np.random.uniform(-0.05, 0.05, num_victims)
 x=np.full(num_victims, 0.5)

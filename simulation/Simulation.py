@@ -152,7 +152,7 @@ class Simulation:
                     "step_number": self.current_step,
                     "timestamp": self.date.isoformat(),
                     "victims": {
-                        "victim_positions": self.victim_group.all_points(),
+                        "victim_positions": np.column_stack((self.victim_group.lats, self.victim_group.lons)),
                         "heatmap": self.heatmap,
                         "heatmap_lon_bin": self.heatmap_lon_bins,
                         "heatmap_lat_bin": self.heatmap_lat_bins,
