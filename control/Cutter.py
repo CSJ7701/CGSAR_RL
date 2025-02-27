@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+from scipy.ndimage import zoom
 from datetime import datetime
 from application.config import Config
 
@@ -42,8 +43,10 @@ class Cutter:
         self.speed_knots = 5 # Default speed of the cutter in knots
         self.draft = 15 # Default draft in meters
         self.time_step = None # Time step, to be determined from the data file
+        self.victim_index = 0
 
-        self.current_step = None
+        # Initialize current_step to None. This will be set when you call _load_step_data(), and initialized to whatever your initial step is. Then incremented on every update.
+        self.current_step = initial_step
         
         self.path = {"start": [(lat,lon)]} # Initialize path with starting location
 
@@ -51,7 +54,7 @@ class Cutter:
         self.victim_check() # Check for victims near the cutter
         self.is_aground() # Check if the cutter is aground
 
-    def _load_step_data(self, step):
+    def _load_step_data(self, step: int):
         """
         Load data for a specific simulation step from the HDF5 file.
 
@@ -60,19 +63,36 @@ class Cutter:
         step_title = f"step_{step}"
         with h5py.File(self.data_path, 'r') as data:
             self.victim_position = data[f"{step_title}/victims/victim_positions"][:]
-            print(f"{step_title}/victims/victim_positions")
+            self.heatmap = data[f"{step_title}/victims/heatmap"][:]
+            self.uo = data[f"{step_title}/current/uo"][:]
+            self.vo = data[f"{step_title}/current/vo"][:]
             # If it's the first time loading data, load the necessary grid and time step
-            if self.current_step is None:
+            if self.time_step is None:
+                self.max_steps = len(data.keys())
                 self.latitudes = data[f"{step_title}/current/latitude"][:]
+                self.lat_center = self.latitudes.mean()
                 self.longitudes = data[f"{step_title}/current/longitude"][:]
+                self.lon_center = self.longitudes.mean()
+                
+                self.heatmap_latitudes = data[f"{step_title}/victims/heatmap_lat_bin"][:]
+                self.heatmap_longitudes = data[f"{step_title}/victims/heatmap_lon_bin"][:]
                 self.depth = data[f"{step_title}/depth/deptho"][:]
                 
                 t1 = datetime.fromisoformat(data["step_1"].attrs["timestamp"])
                 t2 = datetime.fromisoformat(data["step_2"].attrs["timestamp"])
                 self.time_step = (t2-t1).total_seconds()
 
+        self.rescaled_heatmap = self._rescale_heatmap((len(self.latitudes), len(self.longitudes)))
         self.current_step = step
         self.path[f"{self.current_step}"] = []
+
+    def _load_true_victim(self, victim_index: int):
+        """
+        Set the index at which to find the 'true' victim. This determines where the real person is.
+
+        :param victim_index: Index of the victim. Must be between 0 and the length of the victims array.
+        """
+        self.victim_index = victim_index
 
     def _get_depth(self):
         """
@@ -96,6 +116,24 @@ class Cutter:
         else:
             aground = False
         return aground
+
+    def _rescale_heatmap(self, target_shape):
+        scale_factors = (target_shape[0]/self.heatmap.shape[0], target_shape[1]/self.heatmap.shape[1])
+        return zoom(self.heatmap, scale_factors, order=1)
+
+    def _compute_relative_position(self):
+        x = (self.lon-self.lon_center) * np.cos(np.radians(self.lat_center)) * 60 # Convert degrees to nautical miles
+        y = (self.lat - self.lat_center) * 60 # Convert degrees to nautical miles
+        return x,y
+
+    def _get_heatmap_value(self, x,y) -> int:
+        row_idx = int(round(y))
+        col_idx = int(round(x))
+
+        if 0 <= row_idx < self.rescaled_heatmap.shape[0] and 0 <= col_idx < self.rescaled_heatmap.shape[1]:
+            return self.rescaled_heatmap[row_idx, col_idx]
+        else:
+            return 0
 
     def move(self, direction):
         """
@@ -132,7 +170,7 @@ class Cutter:
         # Update the cutter's position
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
 
-    def victim_check(self, radius_nm=1):
+    def victim_check(self, radius_nm=5):
         """
         Check if any victims are within a specified radius from the Cutter's current position.
 
@@ -140,17 +178,18 @@ class Cutter:
 
         :return: True if there are any victims within the specified radius, False otherwise (bool).
         """
-        if self.victim_position.size == 0:
+        if not self.victim_index or self.victim_position[self.victim_index].size == 0:
             return False # No victims to check
         
         radius_deg = radius_nm / 60
         lat, lon = self.lat, self.lon
-        victim_position = self.victim_position
+        victim_position = self.victim_position[self.victim_index]
 
         # Euclidean Distances
-        distances = np.sqrt((victim_position[:,0] - lat) ** 2 + (victim_position[:,1] - lon) ** 2)
+        distances = np.sqrt((victim_position[0] - lat) ** 2 + (victim_position[1] - lon) ** 2)
         nearby_victims = np.any(distances < radius_deg)
-
+        if nearby_victims:
+            print(f"Distance: {distances}, At: {victim_position}")
         return nearby_victims
 
     def update(self, direction):
@@ -163,6 +202,7 @@ class Cutter:
         """
         if not self.current_step:
             raise ValueError("Current step is unknown. Cutter object was not initialized properly")
+
         self.move(direction)
         self.victim_check()
         self._load_step_data(self.current_step+1)
@@ -174,10 +214,15 @@ class Cutter:
         :return: A structured NumPy array containing the Cutter's current position,
                  depth under keel, victim proximity, time step, and simulation step (np.ndarray).
         """
-        lat, lon = self.lat, self.lon
+        x, y = self._compute_relative_position()
         depth_under_keel = self._get_depth() - self.draft
         victim_nearby = self.victim_check()
 
-        return np.array([lat, lon, depth_under_keel, victim_nearby, self.time_step, self.current_step], dtype=np.float32)
+        heatmap_flat = self.rescaled_heatmap.flatten()
+
+        return np.concatenate([
+            np.array([x, y, depth_under_keel, victim_nearby, self.time_step, self.current_step], dtype=np.float32),
+            heatmap_flat
+        ])
         
         

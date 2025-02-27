@@ -169,7 +169,7 @@ class Visualizer:
         self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
-        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.2)
+        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.0)
 
         # Trackline
         if self.trackline:
