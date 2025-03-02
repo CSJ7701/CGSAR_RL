@@ -40,7 +40,7 @@ class Cutter:
         # Load configuration from the config file
         self.config=Config(config_path)
 
-        self.speed_knots = 5 # Default speed of the cutter in knots
+        self.speed_knots = 6 # Default speed of the cutter in knots
         self.draft = 15 # Default draft in meters
         self.time_step = None # Time step, to be determined from the data file
         self.victim_index = 0
@@ -170,7 +170,7 @@ class Cutter:
         # Update the cutter's position
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
 
-    def victim_check(self, radius_nm=5):
+    def victim_check(self, radius_nm=10):
         """
         Check if any victims are within a specified radius from the Cutter's current position.
 

@@ -244,7 +244,7 @@ class Visualizer:
             plt.show()
         else:
             save_path = file if file else "./test.mp4"
-            ani.save(save_path, writer=anim.FFMpegWriter())
+            self.ani.save(save_path, writer=anim.FFMpegWriter())
             logger.info({
                 "message": f"Animation saved to \033[32m{save_path}\033[0m",
                 "event": "plot_save",

@@ -1,3 +1,53 @@
 * CGSAR_RL
 
-This project intends to explore the application of Reinforcement Learning techniques to U.S. Coast Guard search and rescue.
+This project is an exploration of Reinforcement Learning (RL) concepts as they apply to U.S. Coast Guard Search and Rescue (SAR).
+
+* Background
+
+...
+
+* Project Structure
+** Application
+This package handles application level configuration and logging In the future, if we reach the point where we create a GUI or some form of desktop application to interface with the rest of the project, it will be placed in this module. For now, the application package is home to two primary classes:
+
+- =config.py=
+
+  Defines the 'Config' class, which most other packages and classes use to read, write, and interact with a central JSON configuration file.
+
+- =logger.py=
+
+  Defines the 'Logger' class, which most other classes in this project use to save and display log messages. These logs are written to STDOUT as well as external log files, which are stored in the 'data/logs' directory.
+
+
+This module also contains two standalone scripts, which are used primarily for debugging.
+- =logview.py=
+
+  Displays a simple tkinter window that should be helpful for perusing log files produced by this project.
+
+- =performance_profile.py=
+
+  Runs a simple wrapper around the simulation's =wrapper.py= file. Intended to profile the simulation environment, and has nothing to do with the RL portion of this project. Serves as a quick analysis of runtime complexity for the physical simulation environment.
+
+** Simulation
+This package is the most complex portion of the project, and is intended to serve as a simulation environment within which to run an RL agent. There are a variety of classes defined here, with the =Simulation= class serving as the main entry point.
+
+- =Simulation.py=
+
+  The main entry point to the =simulation= package. Wraps calls to the =Environment= and =VictimGroup= classes to define an ocean environment  with surface currents, wind, and a group of 'people' drifting in the water.
+
+- =Environment.py=
+
+  This class handles the environmental data, wrapping calls to =CurrentFetcher.py=, =DepthFetcher.py=, and =WindFetcher.py= to pull and store currents, wind, and depth data. This information is stored in =xarray= datasets.
+
+- =VictimGroup.py=
+
+  This class represents a group of 'victims', or people in the water, handling their motion through the water and their distribution in space.
+
+
+These three classes serve as the main components of the =simulation= package. There are other classes within this package that play a smaller role - for more information on those, see =simulation.README.org=.
+
+** Control
+
+** Resources
+
+** Tests

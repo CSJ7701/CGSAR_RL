@@ -13,7 +13,7 @@ model = PPO(
     env,
     verbose=1,     # Print training info
     device="cpu",
-    # tensorboard_log="./ppo_logs",  # Log training data for TensorBoard
+    tensorboard_log="./data/tensorboard",  # Log training data for TensorBoard
 )
 
 # ✅ Train the model
