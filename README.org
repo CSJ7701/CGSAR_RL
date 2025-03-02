@@ -3,14 +3,14 @@
 This project is an exploration of Reinforcement Learning (RL) concepts as they apply to U.S. Coast Guard Search and Rescue (SAR).
 
 
-- [CGSAR_RL](#cgsarrl)
-- [Background](#background)
-- [Project Structure](#project-structure)
-  - [Application](#application)
-  - [Simulation](#simulation)
-  - [Control](#control)
-  - [Resources](#resources)
-  - [Tests](#tests)
+- [[*CGSAR_RL][CGSAR_RL]]
+- [[*Background][Background]]
+- [[*Project Structure][Project Structure]]
+  - [[*Application][Application]]
+  - [[*Simulation][Simulation]]
+  - [[*Control][Control]]
+  - [[*Resources][Resources]]
+  - [[*Tests][Tests]]
 
 
 
