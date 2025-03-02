@@ -14,6 +14,13 @@ This project is an exploration of Reinforcement Learning (RL) concepts as they a
   - [[#control][Control]]
   - [[#resources][Resources]]
   - [[#tests][Tests]]
+- [[#installation][Installation]]
+- [[#usage][Usage]]
+  - [[#simulation][Simulation]]
+  - [[#victimgroup][VictimGroup]]
+  - [[#visualizer][Visualizer]]
+  - [[#gymenv][GymEnv]]
+- [[#gallery][Gallery]]
 :END:
 
 
@@ -104,17 +111,22 @@ This package includes unit tests and integration tests for the project. These ar
 
 * Installation
 - Step 1: Clone the repository
+  
   #+begin_src shell
     git clone https://github.com/CSJ7701/CGSAR_RL.git
   #+end_src
 
 - Step 2: Install dependencies
+
+  
   If you use [[https://python-poetry.org/][Poetry]] to manage your dependencies, run =poetry install= to download and install the necessary dependencies.
 
   If you use something other than Poetry to manage dependencies, see the =pyproject.toml= file at the root of the project for an up to date list of all dependencies and their versions.
   There is a =requirements.txt= file at the project root as well; I export this from Poetry occasionally, but since this is not how I manage my dependencies I cannot guarantee that it will be fully up to date. You can run =pip install requirements.txt= to install the dependencies specified there, but be aware that there may have been some package or version changes since that list was last updated.
 
 - Step 3: Setup
+
+  
   This step may become unnecessary once I go back through this code to do some housekeeping. As it currently stands, there are some important directories that do not get saved in git which the code requires in order to run (I should really update the code to create these automatically...).
 
   Create the following directories in the root of this project:
@@ -123,8 +135,21 @@ This package includes unit tests and integration tests for the project. These ar
   =data/tensorboard=
 
 - Step 4: Profit
+
+  
   This project should now be ready for you to use. See the [[#usage][Usage]] section below for further details. To initially verify that the project is properly installed and working, you can run one of the tests in the 'Tests' directory (be aware that some of these tests may rely on data or filepaths that you must first generate/edit yourself) or run the =wrapper.py= file at the root of this project. I would personally recommend running =wrapper.py= to generate some data before you do anything else, then take note of the path that this data saved to.
 * Usage
+:PROPERTIES:
+:TOC:      :include descendants
+:END:
+
+:CONTENTS:
+- [[#simulation][Simulation]]
+- [[#victimgroup][VictimGroup]]
+- [[#visualizer][Visualizer]]
+- [[#gymenv][GymEnv]]
+:END:
+
 Since this repo is primarily research focused, how you use this project depends largely on what you are trying to accomplish. Each package is largely independent from the others, and most functionality is set up to run in seperate processes.
 
 The three main endpoints for most top-level functionality provided here will be through the =simulation.Simulation=, =simulation.VictimGroup=, =simulation.Visualizer=, and =control.GymEnv= classes. Below I will outline the basic steps you need to get started, more advanced and complete information will be available in the README file for each specific package.
@@ -211,6 +236,27 @@ You can create an instance of the Visualizer class one of two ways:
     vis = Visulizer(data_path)
     vis.run()
   #+end_src
+
+
+** GymEnv
+The GymEnv class is really a wrapper around the =simulation.Simulation= class and the =control.Cutter= class, exposing several methods that ensure compliance with OpenAI's Gymnasium package and the standardized API it uses. Because of this, we define an instance of the GymEnv class with most of the same inputs we use for the Simulation class. Once defined, we can use any RL implementation we choose, so long as it supports Gymnasium environments. I prefer the =stable-baselines3= library, and that is what I will demonstrate in this brief example.
+
+#+begin_src python
+  from stable_baselines3 import PPO
+  from control.GymEnv import GymEnv
+
+  env = GymEnv("data/frames/file_path.h5", 30.0, -80.1, "resources/settings.json")
+  model = PPO(
+      "MlpPolicy",
+      "env")
+  model.train(total_timesteps = 100_000)
+
+  env.render(mode="human")
+  # Human rendering mode will call the 'Visualizer' class, with the most recent Cutter object's trackline.
+  # Would strongly recommend NOT running this in a loop, but rather as a way to spot check, or better yet, visualize the final trained agent's path.
+#+end_src
+
+This is the bare minimum you would need in order to train an RL model using the custom ocean environment and Cutter object that this project defines. For more in-depth information into each of the classes, methods, or configuration settings, see the README files located in each subdirectory.
 
 * Gallery
 *WIP*
