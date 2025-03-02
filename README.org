@@ -1,23 +1,38 @@
-* CGSAR_RL
+* CGSARRL
+:PROPERTIES:
+:TOC:      :include all
+:END:
 
 This project is an exploration of Reinforcement Learning (RL) concepts as they apply to U.S. Coast Guard Search and Rescue (SAR).
 
-#+begin_quote
-- [[#CGSAR_RL][CGSAR_RL]]
-- [[#Background][Background]]
-- [[#Project Structure][Project Structure]]
-  - [[#Application][Application]]
-  - [[#Simulation][Simulation]]
-  - [[#Control][Control]]
-  - [[#Resources][Resources]]
-  - [[#Tests][Tests]]
-#+end_quote
+:CONTENTS:
+- [[#cgsarrl][CGSARRL]]
+- [[#background][Background]]
+- [[#project-structure][Project Structure]]
+  - [[#application][Application]]
+  - [[#simulation][Simulation]]
+  - [[#control][Control]]
+  - [[#resources][Resources]]
+  - [[#tests][Tests]]
+:END:
+
 
 * Background
 
 ...
 
 * Project Structure
+:PROPERTIES:
+:TOC:      :include descendants
+:END:
+:CONTENTS:
+- [[#application][Application]]
+- [[#simulation][Simulation]]
+- [[#control][Control]]
+- [[#resources][Resources]]
+- [[#tests][Tests]]
+:END:
+
 ** Application
 This package handles application level configuration and logging In the future, if we reach the point where we create a GUI or some form of desktop application to interface with the rest of the project, it will be placed in this module. For now, the application package is home to two primary classes:
 
@@ -55,7 +70,7 @@ This package is the most complex portion of the project, and is intended to serv
   This class represents a group of 'victims', or people in the water, handling their motion through the water and their distribution in space.
 
 
-These three classes serve as the main components of the =simulation= package. There are other classes within this package that play a smaller role - for more information on those, see =simulation.README.org=.
+These three classes serve as the main components of the =simulation= package. There are other classes within this package that play a smaller role - for more information on those, see =simulation/README.org=.
 
 ** Control
 This package manages the decision-making processes for the RL agent.
@@ -86,3 +101,116 @@ This package contains static resources and configuration files used throughout t
 ** Tests
 This package includes unit tests and integration tests for the project. These are primarily qualitative.
 
+
+* Installation
+- Step 1: Clone the repository
+  #+begin_src shell
+    git clone https://github.com/CSJ7701/CGSAR_RL.git
+  #+end_src
+
+- Step 2: Install dependencies
+  If you use [[https://python-poetry.org/][Poetry]] to manage your dependencies, run =poetry install= to download and install the necessary dependencies.
+
+  If you use something other than Poetry to manage dependencies, see the =pyproject.toml= file at the root of the project for an up to date list of all dependencies and their versions.
+  There is a =requirements.txt= file at the project root as well; I export this from Poetry occasionally, but since this is not how I manage my dependencies I cannot guarantee that it will be fully up to date. You can run =pip install requirements.txt= to install the dependencies specified there, but be aware that there may have been some package or version changes since that list was last updated.
+
+- Step 3: Setup
+  This step may become unnecessary once I go back through this code to do some housekeeping. As it currently stands, there are some important directories that do not get saved in git which the code requires in order to run (I should really update the code to create these automatically...).
+
+  Create the following directories in the root of this project:
+  =data/frames=
+  =data/logs=
+  =data/tensorboard=
+
+- Step 4: Profit
+  This project should now be ready for you to use. See the [[#usage][Usage]] section below for further details. To initially verify that the project is properly installed and working, you can run one of the tests in the 'Tests' directory (be aware that some of these tests may rely on data or filepaths that you must first generate/edit yourself) or run the =wrapper.py= file at the root of this project. I would personally recommend running =wrapper.py= to generate some data before you do anything else, then take note of the path that this data saved to.
+* Usage
+Since this repo is primarily research focused, how you use this project depends largely on what you are trying to accomplish. Each package is largely independent from the others, and most functionality is set up to run in seperate processes.
+
+The three main endpoints for most top-level functionality provided here will be through the =simulation.Simulation=, =simulation.VictimGroup=, =simulation.Visualizer=, and =control.GymEnv= classes. Below I will outline the basic steps you need to get started, more advanced and complete information will be available in the README file for each specific package.
+
+** Simulation
+The Simulation class is intended to simulate an ocean environment, namely depth data, and time-varying surface currents. To declare an instance of the =Simulation= class, we must define a center point in latitude and longitude. This centerpoint will define the simulation area. We also define a start and end date, which define the time range that we will simulate. Pass these in, along with the path of the configuration file (should be =resources/settings.json=, unless you have moved this file or made your own).
+
+We declare an instance of the simulation class using this information as shown below:
+#+begin_src python
+  from simulation.Simulation import Simulation
+  from datetime import datetime
+  lat = 30.1
+  lon = -80.0
+  config_path = "resources/settings.json"
+  start_date = datetime(2023,1,1,00,00,00)
+  end_date = datetime(2023,1,3,00,00,00)
+
+  s = Simulation(lat, lon, config_path, start_date, end_date)
+  s.Run()
+#+end_src
+
+This code defines a simulation object centered at (30.1, -80.0) over a 2 day span from 00:00:00 January 1, 2023 to 00:00:00 January 3, 2023, then runs that simulation. The data from this simulation is saved to a timestamped HDF5 file in the =data/frames= directory. The logs from this simulation run are saved to a timestamped directory in the =data/logs= directory.
+
+** VictimGroup
+The VictimGroup class is intended to model a group of people, and their path through the water. This class works closely with the Simulation class. While this class works by tracking a large number of particles, it can be interpreted as a single particle's probabalistic position.
+
+To define an instance of the VictimGroup class, we must pass in initial locations, victim size (will likely be removed soon - this attribute is now unused), victim types, the path to a configuration file, and an instance of =simulation.Environment= (typically taken from a pre-existing Simulation object). This is shown below:
+#+begin_src python
+  import numpy as np
+  from simulation.VictimGroup import VictimGroup
+
+  # Assuming a simulation has already been defined.
+  s = Simulation(...)
+
+  # Define 2000 individual points
+  num_victims = 2000
+  # Randomize starting locations slightly
+  lats = 30.3 + np.random.uniform(-0.05, 0.05, num_victims)
+  lons = -80.0 + np.random.uniform(-0.05, 0.05, num_victims)
+  # Define x,y,z and type (same for all)
+  x = np.full(num_victims, 0.5)
+  y = np.full(num_victims, 0.5)
+  z = np.full(num_victims, 1)
+  vic_type = np.full(num_victime, "piw")
+
+  config = "resources/settings.json"
+
+  victims = VictimGroup(x=x, y=y, z=z, lats=lats, lons=lons, victim_type=vic_type, env=s.env, config_path=config)
+#+end_src
+
+Once you have defined a VictimGroup object, you must add this instance to your simulation object:
+#+begin_src python
+  # Define a Simulation object
+  s = Simulation(...)
+
+  # Define a VictimGroup object
+  vics = VictimGroup(...)
+
+  # Add the VictimGroup to the Simulation
+  s._add_victim_group(vics)
+
+  # Run the simulation
+  s.Run()
+#+end_src
+
+If you do not define and add a VictimGroup to your simulation /before/ you run it, your simulation will show nothing but an empty ocean with some depth information and currents.
+
+** Visualizer
+The Visualizer class is intended to render a simulation graphically, whether this is for debugging purposes or to look at pretty pictures of people floating aimlessly through the water. The visualizer runs entirely independent of any other class, as it pulls data directly from the HDF5 files produced from the simulation.
+
+You can create an instance of the Visualizer class one of two ways:
+- Create an instance which runs in line with a simulation. This is typically the most convenient for a wrapper script, and fetches the data path directly from the simulation.
+  #+begin_src python
+    s = Simulation(...)
+    # You could define a VictimGroup here, but you don't necessarily need to
+    s.Run()
+    vis = Visulizer(s.hdf5_path)
+    vis.run()
+  #+end_src
+- Create an instance which runs from some prior data file. This is often the most convenient for reviewing previous simulations, or if you are using a script to bulk-generate simulation data.
+  #+begin_src python
+    # No simulation needed, as long as you ran one previously and generated some data files
+    data_path = "data/frames/file_name_here.h5"
+    vis = Visulizer(data_path)
+    vis.run()
+  #+end_src
+
+* Gallery
+*WIP*

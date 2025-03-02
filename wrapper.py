@@ -34,7 +34,6 @@ y=np.full(num_victims, 0.5)
 z=np.full(num_victims, 1)
 v_type=np.full(num_victims, "piw")
 vics = VictimGroup(x=x, y=y, z=z, lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
-print(vics._simulation_steps())
 s._add_victim_group(vics)
 
 s.Run()
