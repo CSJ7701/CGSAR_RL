@@ -2,6 +2,18 @@
 
 This project is an exploration of Reinforcement Learning (RL) concepts as they apply to U.S. Coast Guard Search and Rescue (SAR).
 
+
+- [CGSAR_RL](#cgsarrl)
+- [Background](#background)
+- [Project Structure](#project-structure)
+  - [Application](#application)
+  - [Simulation](#simulation)
+  - [Control](#control)
+  - [Resources](#resources)
+  - [Tests](#tests)
+
+
+
 * Background
 
 ...
@@ -47,7 +59,31 @@ This package is the most complex portion of the project, and is intended to serv
 These three classes serve as the main components of the =simulation= package. There are other classes within this package that play a smaller role - for more information on those, see =simulation.README.org=.
 
 ** Control
+This package manages the decision-making processes for the RL agent.
 
+- =Cutter.py=
+
+  Defines the 'Cutter' class, which handles the specifics of the cutter's actions and movements within the simulation environment.
+
+- =GymEnv.py=
+
+  Implements a wrapper around the =simulation.Simulation= class, providing an API compatible with OpenAI's gymnasium environment specifications.
+  
 ** Resources
+This package contains static resources and configuration files used throughout the projects.
+
+- =settings.json=
+
+  The main configuration file for the project. It defines various settings and parameters used by different modules, such as simulation parameters and agent hyperparameters. It is recommended to back up this file before making any changes.
+
+- =settings.json.bkp=
+
+  A backup of the main configuration file.
+
+- =settings.org=
+
+  Documentation for the settings and configuration values used in the project.
 
 ** Tests
+This package includes unit tests and integration tests for the project. These are primarily qualitative.
+
