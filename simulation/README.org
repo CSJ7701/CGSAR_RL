@@ -38,7 +38,7 @@ Input Arguments:
 - =env=: 'Environment' object.
 - =config_path=: Path to the JSON configuration file.
 
-/Note/: All arguments save =env= and =config_path= are *Lists*. The VictimGroup class is optimized to operate on a large number of victims at once, so you must pass in a list, where /order matters/, of all specifications.
+/Note/: All arguments save =env= and =config_path= are *Lists*. The VictimGroup class is optimized to operate on a large number of victims at once, so you must pass in a list, where /order matters/, of all specifications. These lists are indexed relative to each other, so when passing in (for example), =lat= and =lon=, two victims (one at (x,y) and another at (a,b)) would look like =lat = [x,a]=, and =lon = [y,b]=.
 
 /Note/: The victim's position updates occur at a different rate from the rest of the simulation. This is because physical calculations are only accurate over a time range of a few seconds at most. For every simulation tick, a victim will update at a rate defined by values in the configuration file.
 
