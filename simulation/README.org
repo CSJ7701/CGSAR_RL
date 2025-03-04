@@ -57,7 +57,7 @@ Input Arguments:
 - =end_date=: The date to end the simulation. Must be within the time range defined in the configuration file.
 - =frame_dir=: Directory to save output data to. Defaults to "data/frames".
 
-/Note/: the deprecated =time_step= argument has been replaced by the =environment.settings.simulation_timedelta_minutes=, which applies only to the rate at which the environmental data will update. The physical simulation and dynamics calculations are handled seperately, inside the =Victim= class. The rate at which a victim's position/velocity etc will update is dependent on the value for _xxx_ in the configuration file.
+/Note/: the deprecated =time_step= argument has been replaced by the =environment.settings.simulation_timedelta_minutes=, which applies only to the rate at which the environmental data will update. The physical simulation and dynamics calculations are handled seperately, inside the =Victim= class. The rate at which a victim's position/velocity etc will update is dependent on the value for =environment.settings.victim_timedelta_seconds= in the configuration file.
 
 
 Useful Functions:
