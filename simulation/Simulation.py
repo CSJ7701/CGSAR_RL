@@ -33,7 +33,7 @@ class Simulation:
         self.depth=self.env.depth_data
         self.wind=self.env.wind_data
 
-        self.victim_group: VictimGroup
+        self.victim_group: Optional[VictimGroup] = None
 
         self.current_step=0
         self.simulation_steps=self._calculate_steps()
@@ -152,10 +152,10 @@ class Simulation:
                     "step_number": self.current_step,
                     "timestamp": self.date.isoformat(),
                     "victims": {
-                        "victim_positions": np.column_stack((self.victim_group.lats, self.victim_group.lons)),
-                        "heatmap": self.heatmap,
-                        "heatmap_lon_bin": self.heatmap_lon_bins,
-                        "heatmap_lat_bin": self.heatmap_lat_bins,
+                        "victim_positions": np.column_stack((self.victim_group.lats, self.victim_group.lons)) if self.victim_group else np.ndarray([0]),
+                        "heatmap": self.heatmap if self.victim_group else np.ndarray([0]),
+                        "heatmap_lon_bin": self.heatmap_lon_bins if self.victim_group else np.ndarray([0]),
+                        "heatmap_lat_bin": self.heatmap_lat_bins if self.victim_group else np.ndarray([0]),
                     },
                     "current": {
                         "uo": self.currents.uo.values,

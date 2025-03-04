@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 from control.GymEnv import GymEnv
 
 # ✅ Initialize your custom environment
-env = GymEnv("data/frames/20250224_180246.h5",30.0, -80.1, "resources/settings.json")
+env = GymEnv("data/frames/env_w_vics.h5",30.0, -80.1, "resources/settings.json")
 env_vis_mode = "human"
 
 # ✅ Create the PPO model

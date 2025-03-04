@@ -20,7 +20,7 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 4, 00,00,00)
+end_date = datetime(2023, 1, 2, 00,00,00)
 
 logger.info({"event": "simulation_start", "message": "Starting Simulation", "data": {"Center": (lat, lon), "StartDate": str(start_date.isoformat()), "EndData": str(end_date.isoformat())}})
 

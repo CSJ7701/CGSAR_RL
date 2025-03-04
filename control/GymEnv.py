@@ -127,6 +127,6 @@ class GymEnv(gym.Env):
         if mode == "human":
             v = Visualizer(self.data_path)
             v._load_trackline(self.cutter.path)
-            v.run(show=True)
+            v.run(show=False)
         elif mode == "ansi":
             print(f"Step: {self.cutter.current_step}/{self.cutter.max_steps} | Cutter Position: Lat={self.cutter.lat}, Lon={self.cutter.lon}")

@@ -32,6 +32,8 @@ class Visualizer:
             self.total_steps = len(f.keys())  # Count number of steps stored
 
         self.trackline = None
+        self.victims = None
+        self.heatmap_img = None
 
         logger.info({
             "message": "\033[32mVisualizer initialized.\033[0m",
@@ -146,30 +148,32 @@ class Visualizer:
             })
             raise ValueError("Wind interpolators not initialized.")
         lon_grid, lat_grid = np.meshgrid(self.lon, self.lat)
-        uw_grid = self.wind_interpolator_u((lat_grid, lon_grid))
-        vw_grid = self.wind_interpolator_v((lat_grid, lon_grid))
+        #uw_grid = self.wind_interpolator_u((lat_grid, lon_grid))
+        #vw_grid = self.wind_interpolator_v((lat_grid, lon_grid))
 
         # Depth countour
         depth_min, depth_max = np.nanmin(self.deptho), np.nanmax(self.deptho)
         self.depth_contour = self.ax.contourf(lon_grid, lat_grid, self.deptho, levels = np.linspace(depth_min, depth_max, 20), cmap='Blues', alpha=0.7)
 
         # Heatmap
-        custom_cmap = self._create_transparent_colormap()
-        self.heatmap_img = self.ax.pcolormesh(
-            self.x_edges, self.y_edges, self.heatmap,
-            cmap=custom_cmap,
-            norm='log',
-            shading='flat',
-            alpha=0.8,
-            zorder=1,
-        )
+        if self.heatmap.size != 0:
+            custom_cmap = self._create_transparent_colormap()
+            self.heatmap_img = self.ax.pcolormesh(
+                self.x_edges, self.y_edges, self.heatmap,
+                cmap=custom_cmap,
+                norm='log',
+                shading='flat',
+                alpha=0.8,
+                zorder=1,
+            )
         
         # Vectors
         self.currents = self.ax.quiver(lon_grid, lat_grid, self.uo, self.vo, color='red', alpha=0.7, label='Currents')
-        self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
+        #self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
-        self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.0)
+        if self.victim_positions.size != 0:
+            self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.0)
 
         # Trackline
         if self.trackline:
@@ -203,16 +207,18 @@ class Visualizer:
                 'event': "plot_update_error"
             })
             raise ValueError("Wind interpolators not initialized.")
-        lon_grid, lat_grid = np.meshgrid(self.lon, self.lat)
-        uw_grid = self.wind_interpolator_u((lat_grid, lon_grid))
-        vw_grid = self.wind_interpolator_v((lat_grid, lon_grid))
+        #lon_grid, lat_grid = np.meshgrid(self.lon, self.lat)
+        #uw_grid = self.wind_interpolator_u((lat_grid, lon_grid))
+        #vw_grid = self.wind_interpolator_v((lat_grid, lon_grid))
         
         self.currents.set_UVC(self.uo, self.vo)
-        self.winds.set_UVC(uw_grid, vw_grid)
-        self.victims.set_offsets(self.victim_positions[:, [1,0]])
+        #self.winds.set_UVC(uw_grid, vw_grid)
+        if self.victims:
+            self.victims.set_offsets(self.victim_positions[:, [1,0]])
 
-        heatmap,_,_= self._heatmap()
-        self.heatmap_img.set_array(heatmap.ravel())
+        if self.heatmap_img:
+            heatmap,_,_= self._heatmap()
+            self.heatmap_img.set_array(heatmap.ravel())
 
         if self.trackline:
             steps = sorted(int(k) for k in self.trackline.keys() if k!="start")
@@ -227,7 +233,8 @@ class Visualizer:
             self.trackline_plot.set_data(lons, lats)
 
         self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
-        return self.currents, self.winds, self.victims, self.heatmap_img
+        #return self.currents, self.winds, self.victims, self.heatmap_img
+        return self.currents, self.victims, self.heatmap_img
     
     def show(self):
         plt.show()
