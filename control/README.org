@@ -1,0 +1,26 @@
+* Control
+
+This module houses the main RL controller, and the agent which it will control. The agent operates within the environment defined by the =simulation= module.
+
+More explanation to follow, once I understand what the hell im talking about.
+
+* Sub Modules
+
+** GymEnv
+
+** Cutter
+The 'Cutter' defines the primary agent for the model to control.
+
+Input Arguments:
+- =hdf5_path=: This defines the data file that the cutter will pull from.
+- =lat=: Starting latitude.
+- =lon=: Starting longitude.
+- =config_path=: This defines the configuration file the cutter will pull settings from.
+- =initial_step=: This argument is used to 'delay' the cutter. It represents the simulation step at which the cutter will "become aware" of the simulation.
+
+
+Useful Functions:
+- =is_aground=: Returns a boolean representing whether the cutter is aground. This is calculated from the cutter's draft.
+- =move=: Takes an argument to represent direction to move. One of 'N','S','E','W'. Updates the cutter's position based on its speed.
+- =victim_check=: Returns a boolean representing whether a 'victim' is within a defined radius.
+
