@@ -87,6 +87,13 @@ class GymEnv(gym.Env):
         else:
             time_penalty = -1 * int(self.cutter.current_step)
 
+        print({
+            "heatmap": heatmap_reward,
+            "victim": victim_reward,
+            "aground": aground_penalty,
+            "time": time_penalty
+        })
+
         total_reward = heatmap_reward + victim_reward + aground_penalty + time_penalty
         return total_reward
 
@@ -108,7 +115,7 @@ class GymEnv(gym.Env):
 
         obs = self.cutter.observe()
         reward = self.reward()
-        done = self.cutter.is_aground() or self.cutter.victim_check()
+        done = self.cutter.is_aground() or self.cutter.current_step >= self.cutter.max_steps-1
         truncated = self.cutter.current_step >= self.cutter.max_steps-1
 
         return obs, reward, done, truncated, {}
@@ -120,6 +127,6 @@ class GymEnv(gym.Env):
         if mode == "human":
             v = Visualizer(self.data_path)
             v._load_trackline(self.cutter.path)
-            v.run(show=True)
+            v.run(show=False)
         elif mode == "ansi":
             print(f"Step: {self.cutter.current_step}/{self.cutter.max_steps} | Cutter Position: Lat={self.cutter.lat}, Lon={self.cutter.lon}")
