@@ -6,8 +6,6 @@ import numpy as np
 import xarray as xr
 
 from .Environment import Environment
-from .AnimationVisualizer import AnimationVisualizer
-from .Victim import Victim
 from .VictimGroup import VictimGroup
 from application.config import Config
 from application.logger import Logger
@@ -54,6 +52,10 @@ class Simulation:
         return steps
 
     def _heatmap(self):
+
+        if not self.victim_group:
+            raise ValueError("Victim not defined.")
+        
         grid_lons = self.currents.longitude.values
         grid_lats = self.currents.latitude.values
         

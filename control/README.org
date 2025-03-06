@@ -7,6 +7,20 @@ More explanation to follow, once I understand what the hell im talking about.
 * Sub Modules
 
 ** GymEnv
+The 'GymEnv' class serves as a wrapper around the =simulation= module in order to ensure compatibility with OpenAI's [[https://github.com/Farama-Foundation/Gymnasium][Gymnasium]] API.
+
+Input Arguments:
+- =hdf5_path=: The path to the data file from which to load simulation data.
+- =lat=: Starting lat for the 'Cutter' instance.
+- =lon=: Starting lon for the 'Cutter' instance.
+- =config_path=: The path to the configuration file from which to pull setting values.
+
+
+Useful Functions:
+- =reset=: Gymnasium API function. Reset's the environment to it starting position, and returns a tuple of =(observation, info)=.
+- =reward=: Returns the total reward. See source code for specific implementation.
+- =step=: Gymnasium API function. 'Steps' the environment forward by one time step. Returns a tuple of =(observation, reward, done, truncated, info)=.
+- =render=: Gymnasium API function. Renders the episode using the specified method. Currently, only 'human' and 'ansi' are implemented, where 'human' will call the =simulation.Visualizer= class.
 
 ** Cutter
 The 'Cutter' defines the primary agent for the model to control.
@@ -22,5 +36,7 @@ Input Arguments:
 Useful Functions:
 - =is_aground=: Returns a boolean representing whether the cutter is aground. This is calculated from the cutter's draft.
 - =move=: Takes an argument to represent direction to move. One of 'N','S','E','W'. Updates the cutter's position based on its speed.
-- =victim_check=: Returns a boolean representing whether a 'victim' is within a defined radius.
+- =victim_check=: Returns a boolean representing whether a 'victim' is within a defined radius. This radius is currently defined by an input argument, but will be changed to a config file parameter.
+- =update=: This function takes a direction as an argument, which must be one of 'N','S','E','W' and runs the =Cutter.move=, =Cutter.victim_check=, and =Cutter._load_step_data= methods to update the Cutters position and stored data. This is the main interaction point for the Cutter class.
+- =observe=: This method returns the Cutter's current observation, and is meant to maintain compatibility with OpenAI's 'Gymnasium' API. This must match the observation space defined in the GymEnv class.
 
