@@ -8,12 +8,20 @@ env = GymEnv("data/frames/env_w_vics.h5",30.0, -80.1, "resources/settings.json")
 env_vis_mode = "human"
 
 # ✅ Create the PPO model
+#model = PPO(
+#    "MlpPolicy",  # Multi-layer perceptron policy (MLP) for standard observation spaces
+#     env,
+#     verbose=1,     # Print training info
+#     device="cpu",
+#     tensorboard_log="./data/tensorboard",  # Log training data for TensorBoard
+# )
 model = PPO(
-    "MlpPolicy",  # Multi-layer perceptron policy (MLP) for standard observation spaces
+    "MlpPolicy",
     env,
-    verbose=1,     # Print training info
-    device="cpu",
-    tensorboard_log="./data/tensorboard",  # Log training data for TensorBoard
+    ent_coef=0.05,
+    verbose=1,
+    device="cuda",
+    tensorboard_log="./data/tensorboard",
 )
 
 # ✅ Train the model
