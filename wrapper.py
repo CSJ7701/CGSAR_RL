@@ -8,7 +8,6 @@ from application.logger import Logger
 from simulation.VictimGroup import VictimGroup
 from simulation.Simulation import Simulation
 from simulation.Visualizer import Visualizer
-from simulation.Victim import Victim
 
 # Static variables. These should not change.
 logger = Logger(__name__).get()
