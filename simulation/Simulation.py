@@ -4,6 +4,8 @@ from typing import Optional
 import h5py
 import numpy as np
 import xarray as xr
+import os
+                
 
 from .Environment import Environment
 from .VictimGroup import VictimGroup
@@ -82,7 +84,7 @@ class Simulation:
         current_step = step_data.get("step_number", "unknown")
         date = step_data.get("timestamp")
         
-        logger.info({
+        logger.debug({
             "message": f"Writing step {current_step} to HDF5",
             "event": "write_frame",
             "data": {"step": current_step}
@@ -134,18 +136,18 @@ class Simulation:
             self.victim_group.update()
             self.heatmap, self.heatmap_lon_bins, self.heatmap_lat_bins = self._heatmap()
                 
-        logger.info({"message": f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": f"tick_{self.current_step}|{self.simulation_steps}", "data":{"date": self.date.isoformat()}})
-        
-    def Animate(self, file: Optional[str] = None, static:bool = False):
-        if static:
-            self.vis.plot(0)
-            self.vis.show()
-        else:
-            self.vis.run(file is None)
+        logger.debug({"message": f"Tick at {self.date.strftime('%d%b%Y %H:%M:%S')}", "event": f"tick_{self.current_step}|{self.simulation_steps}", "data":{"date": self.date.isoformat()}})
 
-    def Run(self):
-        with h5py.File(self.hdf5_path, "w") as file:
-            logger.info({"message": f"Saving frames to: {self.hdf5_path}", "event": "frame_file_init", "data":{"file":self.hdf5_path}})
+    def Run(self, save_dir: Optional[str] = None):
+        if save_dir:
+            save_dir=str(save_dir)
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, datetime.now().strftime("%Y%m%d_%H%M%S") + ".h5")
+        else:
+            save_path = self.hdf5_path
+            
+        with h5py.File(save_path, "w") as file:
+            logger.info({"message": f"Saving frames to: {save_path}", "event": "frame_file_init", "data":{"file":save_path}})
             
             for _ in range(0, self.simulation_steps):
                 self.Tick()
