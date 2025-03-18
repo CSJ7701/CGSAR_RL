@@ -19,7 +19,8 @@ model = PPO(
 
 # ✅ Train the model
 print("Starting training...")
-model.learn(total_timesteps=100_000)  # Train for 10,000 steps
+episode_size = env.cutter.max_steps
+model.learn(total_timesteps=100000 * episode_size)  # Train for 100 episodes
 print("Training complete!")
 
 # ✅ Save the trained model
