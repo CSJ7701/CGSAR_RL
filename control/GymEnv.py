@@ -20,15 +20,6 @@ class GymEnv(gym.Env):
         # Define action space (Discrete: 4 possible movements)
         self.action_space = spaces.Discrete(4)
 
-        MIN_LAT = 10
-        MAX_LAT = 80
-        MIN_LON = -180
-        MAX_LON = 180
-        MIN_DEPTH = 0
-        MAX_DEPTH = 5000
-        MAX_TIME_STEP = 10000
-        MAX_SIM_STEP = 10000
-
         obs_values = self.cutter.observe().shape[0]
         self.observation_space = spaces.Box(
             low = np.full(obs_values, -np.inf, dtype=np.float64),
@@ -71,7 +62,11 @@ class GymEnv(gym.Env):
 
         # Reward for being in a heatmap cell, scaled by heatmap value
         x,y = self.cutter._compute_relative_position()
-        heatmap_reward = 10 * self.cutter._get_heatmap_value(x,y)
+        heatmap_reward = 10 * self.cutter._get_heatmap_value(x,y) # 0-100 in steps of 10
+
+        # Reward based on distance to heatmap
+        distance = self.cutter._get_heatmap_distance(x,y)
+        distance_reward = 5 * (1/distance) # Inverse scale based on distance
 
         # Reward for finding a victim
         victim_reward = 0
@@ -87,14 +82,15 @@ class GymEnv(gym.Env):
         else:
             time_penalty = -1 * int(self.cutter.current_step)
 
-        print({
-            "heatmap": heatmap_reward,
-            "victim": victim_reward,
-            "aground": aground_penalty,
-            "time": time_penalty
-        })
+        # print({
+        #     "heatmap": heatmap_reward,
+        #     "distance": distance_reward,
+        #     "victim": victim_reward,
+        #     "aground": aground_penalty,
+        #     "time": time_penalty
+        # })
 
-        total_reward = heatmap_reward + victim_reward + aground_penalty + time_penalty
+        total_reward = heatmap_reward + distance_reward + victim_reward + aground_penalty + time_penalty
         return total_reward
 
     def step(self, action):
@@ -115,7 +111,7 @@ class GymEnv(gym.Env):
 
         obs = self.cutter.observe()
         reward = self.reward()
-        done = self.cutter.is_aground() or self.cutter.current_step >= self.cutter.max_steps-1
+        done = self.cutter.is_aground() or self.cutter.current_step >= self.cutter.max_steps-1 or self.cutter.victim_check()
         truncated = self.cutter.current_step >= self.cutter.max_steps-1
 
         return obs, reward, done, truncated, {}

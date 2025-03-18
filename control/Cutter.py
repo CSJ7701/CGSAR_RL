@@ -1,8 +1,11 @@
 import h5py
 import numpy as np
 from scipy.ndimage import zoom
+from scipy.spatial import distance
 from datetime import datetime
 from application.config import Config
+
+import matplotlib.pyplot as plt
 
 class Cutter:
     """
@@ -134,6 +137,21 @@ class Cutter:
             return self.rescaled_heatmap[row_idx, col_idx]
         else:
             return 0
+
+    def _get_heatmap_distance(self,x,y) -> float:
+        
+        heatmap_indices = np.argwhere(self.heatmap > 0)
+        if heatmap_indices.size == 0:
+            return float('inf')
+
+        heatmap_coords = np.array([
+            ((self.heatmap_longitudes[j] - self.lon_center) * 60,
+             (self.heatmap_latitudes[i] - self.lat_center) * 60)
+            for i,j in heatmap_indices
+        ])
+
+        min_dist = np.min(distance.cdist([(x,y)], heatmap_coords))
+        return min_dist
 
     def move(self, direction):
         """
