@@ -25,7 +25,7 @@ model = PPO(
 print("Starting training...")
 # Makes sure I can't screw up episode size and accidentally train for 14 hours... (We learn from our mistakes)
 episode_size = env.cutter.max_steps
-target_episodes = 10000
+target_episodes = 100000
 episode_scale_factor = ceil(target_episodes / episode_size)
 model.learn(total_timesteps=episode_scale_factor * episode_size)  # Train for 100 episodes
 print("Training complete!")
@@ -39,7 +39,8 @@ model = PPO.load("ppo_mymodel", env)
 # ✅ Run a test episode
 obs, _ = env.reset()
 done = False
-while not done:
+truncated = False
+while not done and not truncated:
     action, _states = model.predict(obs)  # Get action from trained policy
     obs, reward, done, truncated, _ = env.step(action)
     if env_vis_mode == "ansi":
