@@ -2,12 +2,13 @@ from simulation.Visualizer import Visualizer
 from control.Cutter import Cutter
 import h5py
 
-data_path = "data/frames/20250224_180246.h5"
+data_path = "data/frames/env_w_vics.h5"
 initial_step=1
 c=Cutter(data_path, 30.2, -80.1, "resources/settings.json", initial_step=initial_step)
 c._load_true_victim(2)
 
 v=Visualizer(data_path)
+v._load_real_victim(2)
 
 with h5py.File(data_path, 'r') as data:
     steps = len(data.keys())
