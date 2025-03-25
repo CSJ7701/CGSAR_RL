@@ -80,7 +80,8 @@ class GymEnv(gym.Env):
         if not self.cutter.current_step:
             time_penalty = 0
         else:
-            time_penalty = -1 * int(self.cutter.current_step)
+            # time_penalty = -1 * int(self.cutter.current_step)
+            time_penalty = -1
 
         # print({
         #     "heatmap": heatmap_reward,
@@ -98,31 +99,37 @@ class GymEnv(gym.Env):
         Executes a step in the environment.
 
         :param action: An integer representing the direction (0=N, 1=S, 2=E, 3=W).
-        :return: observation, reward, done, info
+        :return: observation, reward, terminated, truncated, info
         """
         if self.cutter.current_step >= self.cutter.max_steps:
             truncated = True
-            return self.cutter.observe(), 0, True, truncated, {}
+            terminated = False
+            return self.cutter.observe(), 0, terminated, truncated, {}
         
         direction_map = {0:'N', 1:'S', 2:'E', 3:'W'}
         direction = direction_map[int(action)]
-
         self.cutter.update(direction)
 
         obs = self.cutter.observe()
         reward = self.reward()
-        done = self.cutter.is_aground() or self.cutter.current_step >= self.cutter.max_steps-1 or self.cutter.victim_check()
-        truncated = self.cutter.current_step >= self.cutter.max_steps-1
+        
+        terminated = self.cutter.is_aground() or self.cutter.victim_check()
+        truncated = (self.cutter.current_step >= self.cutter.max_steps-1) and not terminated
 
-        return obs, reward, done, truncated, {}
+        if terminated or truncated:
+            print(f"\033[92m Episode ended at step {self.cutter.current_step} with " +
+                  f"{'termination' if terminated else 'truncation'}\033[00m.")
 
-    def render(self, mode="human"):
+        return obs, reward, terminated, truncated, {}
+
+    def render(self, mode="human", show=False):
         """
         Render the Cutter's state (for debugging).
         """
         if mode == "human":
             v = Visualizer(self.data_path)
             v._load_trackline(self.cutter.path)
-            v.run(show=False)
+            v._load_real_victim(self.cutter.victim_index)
+            v.run(show=show)
         elif mode == "ansi":
             print(f"Step: {self.cutter.current_step}/{self.cutter.max_steps} | Cutter Position: Lat={self.cutter.lat}, Lon={self.cutter.lon}")

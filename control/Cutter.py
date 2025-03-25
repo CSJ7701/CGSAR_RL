@@ -188,7 +188,8 @@ class Cutter:
         # Update the cutter's position
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
 
-    def victim_check(self, radius_nm=10):
+    # At a height of 10 meters above the ground, visibility should be about 356.96 Km, or 192.7 nm.
+    def victim_check(self, radius_nm=5):
         """
         Check if any victims are within a specified radius from the Cutter's current position.
 
@@ -196,7 +197,7 @@ class Cutter:
 
         :return: True if there are any victims within the specified radius, False otherwise (bool).
         """
-        if not self.victim_index or self.victim_position[self.victim_index].size == 0:
+        if self.victim_index is None or self.victim_position[self.victim_index].size == 0:
             return False # No victims to check
         
         radius_deg = radius_nm / 60

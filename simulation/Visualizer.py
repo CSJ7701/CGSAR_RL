@@ -32,6 +32,9 @@ class Visualizer:
             self.total_steps = len(f.keys())  # Count number of steps stored
 
         self.trackline = None
+        self.real_victim = None
+        self.real_victim_index = None
+        self.real_victim_plot = None
         self.victims = None
         self.heatmap_img = None
 
@@ -84,6 +87,18 @@ class Visualizer:
 
     def _load_trackline(self, trackline: dict[str, list]):
         self.trackline = trackline
+
+    def _load_real_victim(self, index: int):
+        """Store the real person's location for visualization."""
+        if not self.real_victim_index:
+            self.real_victim_index = index
+            
+        if not hasattr(self, 'victim_positions') or self.victim_positions.size == 0:
+            logger.warning("No victim positions available.")
+            return
+
+        # Assumes index is valid. Also assumes order of victims is constant between cutter and visualizer.
+        self.real_victim = np.array(self.victim_positions[index]).flatten()
 
     def _create_interpolators(self, wind_lat, wind_lon, uw, vw):
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
@@ -138,6 +153,8 @@ class Visualizer:
 
     def plot(self, step):
         self._load_step_data(step)
+        if self.real_victim_index is not None:
+            self._load_real_victim(self.real_victim_index)
 
         #heatmap, x_edges, y_edges = self._heatmap()
         
@@ -191,6 +208,12 @@ class Visualizer:
                     [start_lon], [start_lat],
                     marker='x', linestyle='-', color='b')
 
+        if hasattr(self, 'real_victim') and self.real_victim is not None:
+            self.real_victim_plot = self.ax.scatter(
+                self.real_victim[1], self.real_victim[0],
+                color='yellow', marker='*', label='Real Victim', s=30, edgecolors='black', linewidth=0.5
+            )
+
         self.ax.set_title(f"Surface Currents and Wind at Step {step}")
         self.ax.set_xlabel('Longitude')
         self.ax.set_ylabel('Latitude')
@@ -232,9 +255,13 @@ class Visualizer:
                 
             self.trackline_plot.set_data(lons, lats)
 
+        if self.real_victim_plot:
+            self.real_victim = self.victim_positions[self.real_victim_index]
+            self.real_victim_plot.set_offsets([self.real_victim[1], self.real_victim[0]])
+
         self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
         #return self.currents, self.winds, self.victims, self.heatmap_img
-        return self.currents, self.victims, self.heatmap_img
+        return self.currents, self.victims, self.heatmap_img, self.real_victim_plot
     
     def show(self):
         plt.show()
