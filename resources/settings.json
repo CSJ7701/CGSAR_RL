@@ -11,7 +11,7 @@
             "victim_timedelta_seconds": 30
         },
         "constants": {
-            "pi": 3.14159,
+            "pi": "3.14159",
             "earth_rotational_vel": 7.292e-05,
             "earth_radius": 6371000,
             "water_density": 1025
@@ -47,10 +47,10 @@
         }
     },
     "victims": {
-	"cloud_points": 1,
-	"cloud_noise": 0.000,
-	"cloud_angle_noise": 0.5,
-	"cloud_deviation_chance": 0.5,
+        "cloud_points": 1,
+        "cloud_noise": 0.0,
+        "cloud_angle_noise": 0.5,
+        "cloud_deviation_chance": 0.5,
         "piw": {
             "density": 985,
             "avg_mass": 10,

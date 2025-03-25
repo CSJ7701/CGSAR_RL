@@ -1,3 +1,4 @@
+import shutil
 import json
 import os
 
@@ -54,6 +55,27 @@ class Config:
             data = data[key]
         return data
 
+    def traverse(self, data=None, parent_key=""):
+        """
+        Recursively traverse the configuration directory.
+
+        :param data: Dictionary to traverse (defaults to self.config).
+        :param parent_key: Key path prefix.
+        :return: A flat dictionary of key paths and values.
+        """
+        items = {}
+        if data is None:
+            data = self.config
+        for key, value in data.items():
+            full_key = f"{parent_key}.{key}" if parent_key else key
+            if isinstance(value, dict):
+                items.update(self.traverse(value, full_key))
+            else:
+                items[full_key] = value
+
+        return items
+                    
+
     def get_value(self, key) -> str:
         """Get the value of a key in the configuration.
 
@@ -102,6 +124,22 @@ class Config:
         if parent_data and key_path[-1] in parent_data:
             del parent_data[key_path[-1]]
             self.save_config()
+
+    def backup(self):
+        """Create a backup of the current configuration file."""
+        backup_path = self.file_path + ".bkp"
+        shutil.copy(self.file_path, backup_path)
+
+    def restore_config(self):
+        """Restore the configuration from the backup file."""
+        backup_path = self.file_path + ".bkp"
+        if os.path.exists(backup_path):
+            shutil.copy(backup_path, self.file_path)
+            self.config = self.load_config()
+            return True
+        else:
+            return False
+            
 
 
 if __name__ == "__main__":
