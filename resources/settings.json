@@ -20,7 +20,7 @@
     "application": {
         "settings": {
             "config": "resources/settings.json",
-            "project_dir": "/home/csj7701/Projects/CGSAR_RL",
+            "project_dir": "/home/souvigniers/CGSAR_RL",
             "copernicus_username": "cjohnson4",
             "copernicus_password": "Chri$7701"
         },
@@ -31,26 +31,26 @@
             "time_range_end": "2023-01-31T00:00:00",
             "depth": {
                 "file": "depth.nc",
-                "updated": "2025-01-27T08:44:13",
+                "updated": "2025-03-19T21:33:12",
                 "ID": "cmems_mod_glo_phy_anfc_0.083deg_static"
             },
             "current": {
                 "file": "current.nc",
-                "updated": "2025-02-18T11:08:31",
+                "updated": "2025-03-19T21:33:02",
                 "ID": "cmems_mod_glo_phy_anfc_0.083deg_PT1H-m"
             },
             "wind": {
                 "file": "wind.nc",
-                "updated": "2025-01-27T08:44:48",
+                "updated": "2025-03-19T21:33:53",
                 "ID": "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H"
             }
         }
     },
     "victims": {
-	"cloud_points": 1,
-	"cloud_noise": 0.000,
-	"cloud_angle_noise": 0.5,
-	"cloud_deviation_chance": 0.5,
+        "cloud_points": 1,
+        "cloud_noise": 0.0,
+        "cloud_angle_noise": 0.5,
+        "cloud_deviation_chance": 0.5,
         "piw": {
             "density": 985,
             "avg_mass": 10,
