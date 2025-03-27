@@ -32,6 +32,7 @@ class Visualizer:
             self.total_steps = len(f.keys())  # Count number of steps stored
 
         self.trackline = None
+        self.trackline_success = None
         self.real_victim = None
         self.real_victim_index = None
         self.real_victim_plot = None
@@ -85,8 +86,9 @@ class Visualizer:
             else:
                 self.victim_positions = np.empty((0,2))
 
-    def _load_trackline(self, trackline: dict[str, list]):
+    def _load_trackline(self, trackline: dict[str, list], success: bool = False):
         self.trackline = trackline
+        self.trackline_success = success
 
     def _load_real_victim(self, index: int):
         """Store the real person's location for visualization."""
@@ -224,6 +226,8 @@ class Visualizer:
 
     def update(self, frame):
         self._load_step_data(frame+1)
+        self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
+
         if not self.wind_interpolator_v or not self.wind_interpolator_u:
             logger.critical({
                 'message': "Wind interpolators not initialized.",
@@ -243,6 +247,10 @@ class Visualizer:
             heatmap,_,_= self._heatmap()
             self.heatmap_img.set_array(heatmap.ravel())
 
+        if self.real_victim_plot:
+            self.real_victim = self.victim_positions[self.real_victim_index]
+            self.real_victim_plot.set_offsets([self.real_victim[1], self.real_victim[0]])
+
         if self.trackline:
             steps = sorted(int(k) for k in self.trackline.keys() if k!="start")
             valid_steps = [str(s) for s in steps if s <= frame+1]
@@ -252,14 +260,8 @@ class Visualizer:
                 if s in self.trackline:
                     lats.extend(coord[0] for coord in self.trackline[s])
                     lons.extend(coord[1] for coord in self.trackline[s])
-                
             self.trackline_plot.set_data(lons, lats)
 
-        if self.real_victim_plot:
-            self.real_victim = self.victim_positions[self.real_victim_index]
-            self.real_victim_plot.set_offsets([self.real_victim[1], self.real_victim[0]])
-
-        self.ax.set_title(f"Surface Currents and Wind at Step {frame+1}")
         #return self.currents, self.winds, self.victims, self.heatmap_img
         return self.currents, self.victims, self.heatmap_img, self.real_victim_plot
     
@@ -268,7 +270,14 @@ class Visualizer:
 
     def run(self, show: bool = False, file: Optional[str] = None):
         self.plot(1)
-        self.ani = anim.FuncAnimation(self.fig, self.update, frames=self.total_steps, interval = 100, blit=False)
+        if self.trackline:
+            steps = [int(k) for k in self.trackline.keys() if k != "start"]
+            max_frame = max(steps) + 2
+            if max_frame > self.total_steps:
+                max_frame = self.total_steps
+        else:
+            max_frame = self.total_steps
+        self.ani = anim.FuncAnimation(self.fig, self.update, frames=max_frame, interval = 100, blit=False)
 
         if show:
             logger.info({

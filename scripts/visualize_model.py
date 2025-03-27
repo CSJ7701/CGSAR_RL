@@ -40,8 +40,8 @@ def visualize_model(data_file, lat, lon, config_file, model_file, render_mode):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualize a trained PPO model in a custom environment.")
     parser.add_argument("--data_file", type=str, required=True, help="Path to the data file.")
-    parser.add_argument("--lat", type=float, required=True, help="Latitude for the environment.")
-    parser.add_argument("--lon", type=float, required=True, help="Longitude for the environment.")
+    parser.add_argument("--lat", type=float, required=True, help="Starting latitude for the model.")
+    parser.add_argument("--lon", type=float, required=True, help="Starting longitude fo.")
     parser.add_argument("--config_file", type=str, required=True, help="Path to the configuration file.")
     parser.add_argument("--model_file", type=str, required=True, help="Path to the trained model file.")
     parser.add_argument("--render_mode", type=str, default="human", choices=["human", "ansi"], help="Rendering mode ('human' or 'ansi').")
