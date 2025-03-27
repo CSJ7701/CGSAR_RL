@@ -6,7 +6,7 @@ from control.GymEnv import GymEnv
 from math import ceil
 
 # ✅ Initialize your custom environment
-env = GymEnv("data/frames/env_w_vics.h5",30.0, -80.1, "resources/settings.json")
+env = GymEnv("data/frames/big_env_2.h5",30.0, -80.1, "resources/settings.json")
 env_vis_mode = "human"
 
 # ✅ Create the PPO model
