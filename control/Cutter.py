@@ -47,6 +47,7 @@ class Cutter:
         self.draft = 15 # Default draft in meters
         self.time_step = None # Time step, to be determined from the data file
         self.victim_index = 0
+        self.orientation = 0 # 0: N, 90: E, 180: S, 270: W
 
         # Initialize current_step to None. This will be set when you call _load_step_data(), and initialized to whatever your initial step is. Then incremented on every update.
         self.current_step = initial_step
@@ -178,12 +179,16 @@ class Cutter:
         # Approximate conversion (1 nm ~~ 1/60th of a degree)
         if direction == 'N':
             self.lat += displacement_nm / 60
+            self.orientation = 0
         elif direction == 'S':
             self.lat -= displacement_nm / 60
+            self.orientation = 180
         elif direction == 'E':
             self.lon += displacement_nm / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 90
         elif direction == 'W':
             self.lon -= displacement_nm / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 270
 
         # Update the cutter's position
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
@@ -207,8 +212,6 @@ class Cutter:
         # Euclidean Distances
         distances = np.sqrt((victim_position[0] - lat) ** 2 + (victim_position[1] - lon) ** 2)
         nearby_victims = np.any(distances < radius_deg)
-        if nearby_victims:
-            print(f"Distance: {distances}, At: {victim_position}")
         return nearby_victims
 
     def update(self, direction):
