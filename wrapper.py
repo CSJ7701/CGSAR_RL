@@ -19,20 +19,27 @@ config_path = os.path.join(proj_dir,"resources/settings.json")
 lat = 30.1
 lon = -80.0
 start_date = datetime(2023, 1, 1, 00, 00, 00)
-end_date = datetime(2023, 1, 2, 00,00,00)
+end_date = datetime(2023, 1, 3, 00,00,00)
 
 logger.info({"event": "simulation_start", "message": "Starting Simulation", "data": {"Center": (lat, lon), "StartDate": str(start_date.isoformat()), "EndData": str(end_date.isoformat())}})
 
 s = Simulation(lat, lon, config_path, start_date, end_date)
 
 num_victims=2000
-lats=30.3 + np.random.uniform(-0.05, 0.05, num_victims)
-lons=-80.0 + np.random.uniform(-0.05, 0.05, num_victims)
-x=np.full(num_victims, 0.5)
-y=np.full(num_victims, 0.5)
-z=np.full(num_victims, 1)
+# Uniform (square)
+## lats=30.3 + np.random.uniform(-0.1, 0.1, num_victims)
+## lons=-80.0 + np.random.uniform(-0.1, 0.1, num_victims)
+# Uniform (circle)
+r=np.random.uniform(0,0.175,num_victims)
+theta=np.random.uniform(0,2*np.pi, num_victims)
+lats=30.3 + r*np.cos(theta)
+lons=-80.0 + r*np.sin(theta)
+# Gaussian
+## lats = 30.3 + np.random.normal(0, 0.05, num_victims)
+## lons = -80.0 + np.random.normal(0,0.05, num_victims)
+
 v_type=np.full(num_victims, "piw")
-vics = VictimGroup(x=x, y=y, z=z, lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
+vics = VictimGroup(lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
 s._add_victim_group(vics)
 
 s.Run()
