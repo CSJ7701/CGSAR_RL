@@ -66,12 +66,7 @@ def main():
             lons = args.lon + np.random.uniform(args.lon_delta[0], args.lon_delta[1], args.num_victims)
             v_type = np.full(args.num_victims, "piw")
 
-            # Placeholder for x,y,z (until VictimGroup is refactored)
-            x = np.full(args.num_victims, 0.5)
-            y = np.full(args.num_victims, 0.5)
-            z = np.full(args.num_victims, 1.0)
-
-            vics = VictimGroup(x=x, y=y, z=z, lat=lats, lon=lons, victim_type=v_type, env=sim.env, config_path=config_path)
+            vics = VictimGroup(lat=lats, lon=lons, victim_type=v_type, env=sim.env, config_path=config_path)
             sim._add_victim_group(vics)
 
             # Run with output directory
@@ -79,6 +74,8 @@ def main():
                 sim.Run(save_dir=vic_dir)
 
 def example():
+    # This is a hardcoded example to base the arguments off of.
+    
     # Tuning parameters
     # Should be able to pass in as args.
     simulation_center_lat = 30.1
@@ -87,29 +84,32 @@ def example():
     num_victims = 2000
 
     victim_lat = 30.1
-    victim_lat_delta_low = -0.05
-    victim_lat_delta_high = 0.05
+    # victim_lat_delta_low = -0.05
+    # victim_lat_delta_high = 0.05
 
     victim_lon = -80.0
-    victim_lon_delta_low = -0.05
-    victim_lon_delta_high = 0.05
+    # victim_lon_delta_low = -0.05
+    # victim_lon_delta_high = 0.05
+
+    victim_r_low = 0
+    victim_r_high = 0.175
+    r = np.random.uniform(victim_r_low, victim_r_high, num_victims)
+    theta = np.random.uniform(0,2*np.pi, num_victims)
+
 
     start_date = datetime(2023,1,1,00,00,00)
     end_date = datetime(2023,1,2,00,00,00)
 
     # Semi-Random Initial Conditions
-    lats = victim_lat + np.random.uniform(victim_lat_delta_low, victim_lat_delta_high, num_victims)
-    lons = victim_lon + np.random.uniform(victim_lon_delta_low, victim_lon_delta_high, num_victims)
+    ## lats = victim_lat + np.random.uniform(victim_lat_delta_low, victim_lat_delta_high, num_victims)
+    ## lons = victim_lon + np.random.uniform(victim_lon_delta_low, victim_lon_delta_high, num_victims)
+    lats=victim_lat + r*np.cos(theta)
+    lons=victim_lon + r*np.sin(theta)
     v_type = np.full(num_victims, "piw")
-
-    ## These will be removed, once VictimGroup is refactored.
-    x = np.full(num_victims, 0.5)
-    y = np.full(num_victims, 0.5)
-    z = np.full(num_victims, 1)
 
     # Simulation also takes a 'frame_dir' argument to specify where to save data.
     s = Simulation(simulation_center_lat, simulation_center_lon, config_path, start_date, end_date)
-    vics = VictimGroup(x=x, y=y, z=z, lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
+    vics = VictimGroup(lat=lats, lon=lons, victim_type=v_type, env=s.env, config_path=config_path)
 
     # Add generated victims and run simulation
     s._add_victim_group(vics)
