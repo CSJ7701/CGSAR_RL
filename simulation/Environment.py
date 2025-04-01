@@ -190,13 +190,15 @@ class Environment:
         return depth_data[lat_idx, lon_idx]
 
     def VectorizedQuery(self, lats, lons):
-        lats = np.asarray(lats)
-        lons = np.asarray(lons)
+        lats = np.asarray(lats).flatten()
+        lons = np.asarray(lons).flatten()
         lat_min, lat_max, lon_min, lon_max = self.bounds
 
-        if not (np.all(lats >= lat_min) and np.all(lats <= lat_max) and
-                np.all(lons >= lon_min) and np.all(lons <= lon_max)):
+        out_of_bounds_mask = (lats<lat_min)|(lats > lat_max)|(lons<lon_min)|(lons>lon_max)
+        
+        if np.any(out_of_bounds_mask):
             logger.warning({"message": "One or more query points are out of bounds!", "event": "environment_query_bounds_error"})
+            # out_of_bounds_points = np.column_stack((lats[out_of_bounds_mask], lons[out_of_bounds_mask]))
             raise ValueError("One or more query points are out of bounds!")
 
         u_cur, v_cur = self.current_interpolator(lats, lons)
