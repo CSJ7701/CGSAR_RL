@@ -1,6 +1,7 @@
 from math import ceil
 import argparse
 import os
+import random
 import re
 import gymnasium as gym
 import torch
@@ -18,7 +19,7 @@ def parse_args():
     train.add_argument("-S", "--simulations", type=int, required=True, help="Number of simulation environments to train on.")
     train.add_argument("-I", "--iterations", type=int, required=True, help="Number of iterations per environment.")
     train.add_argument("-E", "--episodes", type=int, required=True, help="Number of episodes per iteration.")
-    train.add_argument("-e", "--environment", type=str, required=True, help="Path to the simulation data directory.")
+    train.add_argument("-e", "--environment_dir", type=str, required=True, help="Path to the simulation data directory.")
     train.add_argument("-y", "--evaluation", type=int, default=0, help="Interval in iterations at which to show an evaluation step. Default is 0, or no evaluation. If enabled, higher numbers are recommended.")
 
     
@@ -63,13 +64,38 @@ def validate_data_dir(directory: str) -> bool:
                 logger.warning({"event": "invalid_data_dir", "message": f"No .h5 files found in {vics} under {env}."})
                 return False
 
-    print("Directory is valid.")
     return True
+
+def get_data_file(directory: str) -> str:
+    """
+    Return a random data file from the given directory.
+    Assumes the given directory contains folders name "env_X", where X is a number,
+    and that those folders contain other folders named "vics_Y" where Y is a number.
+    Will return a file with the extension ".h5" from a random "vics_Y" folder in a random "env_X" folder.
+    :param directory: Path to the directory.
+    :return: The string path of the random data file. Empty string if none found.
+    """
+
+    env_pattern = re.compile(r"env_\d+")
+    vic_pattern = re.compile(r"vics_\d+")
+
+    env_folders = [f for f in os.listdir(directory) if env_pattern.fullmatch(f) and os.path.isdir(os.path.join(directory, f))]
+    env = random.choice(env_folders)
+    env_path = os.path.join(directory, env)
+    vic_folders = [f for f in os.listdir(env_path) if vic_pattern.fullmatch(f) and os.path.isdir(os.path.join(env_path,f))]
+    vic = random.choice(vic_folders)
+    vic_path = os.path.join(env_path, vic)
+    data_files = [f for f in os.listdir(vic_path) if f.endswith(".h5")]
+    file = random.choice(data_files)
+    file_path = os.path.join(vic_path,file)
+    return file_path
             
 def main():
     args = parse_args()
-
-    validate_data_dir(args.environment)
+    
+    if not validate_data_dir(args.environment_dir):
+        raise ValueError("Directory structure is not valid.")
+    print(get_data_file(args.environment_dir))
 
 
 if __name__ == "__main__":
