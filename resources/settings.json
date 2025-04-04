@@ -2,7 +2,7 @@
     "environment": {
         "settings": {
             "degrees_per_mile": 69.172,
-            "default_window_margin": 100,
+            "default_window_margin": 200,
             "latitude_min": 25.0,
             "latitude_max": 35.0,
             "longitude_min": -82.0,
@@ -11,7 +11,7 @@
             "victim_timedelta_seconds": 30
         },
         "constants": {
-            "pi": 3.14159,
+            "pi": "3.14159",
             "earth_rotational_vel": 7.292e-05,
             "earth_radius": 6371000,
             "water_density": 1025
@@ -20,7 +20,7 @@
     "application": {
         "settings": {
             "config": "resources/settings.json",
-            "project_dir": "/home/souvigniers/CGSAR_RL",
+            "project_dir": "/home/csj7701/Projects/CGSAR_RL",
             "copernicus_username": "cjohnson4",
             "copernicus_password": "Chri$7701"
         },
@@ -31,7 +31,7 @@
             "time_range_end": "2023-01-31T00:00:00",
             "depth": {
                 "file": "depth.nc",
-                "updated": "2025-03-19T21:33:12",
+                "updated": "2025-03-30T06:13:09",
                 "ID": "cmems_mod_glo_phy_anfc_0.083deg_static"
             },
             "current": {
@@ -41,7 +41,7 @@
             },
             "wind": {
                 "file": "wind.nc",
-                "updated": "2025-03-19T21:33:53",
+                "updated": "2025-03-30T06:13:44",
                 "ID": "cmems_obs-wind_glo_phy_nrt_l4_0.125deg_PT1H"
             }
         }

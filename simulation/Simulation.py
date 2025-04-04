@@ -187,4 +187,27 @@ class Simulation:
                     self.step_buffer.clear()
             for step in self.step_buffer:
                 self._write_frame(file, step)
-                    
+
+    def Reset(self, lat: Optional[float] = None, lon: Optional[float] = None, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
+        """Reset the simulation with new or existing parameters."""
+
+        self.lat = lat if lat is not None else self.lat
+        self.lon = lon if lon is not None else self.lon
+        self.start = start_date if start_date is not None else self.start
+        self.end = end_date if end_date is not None else self.end
+        self.date = self.start
+        self.simulation_steps = self._calculate_steps()
+        self.current_step = 0
+        self.step_buffer.clear()
+
+        # Reinitialize environment and victim group
+        self.env = Environment(self.lat, self.lon, self.config_path, date=self.start)
+        self.currents = self.env.current_data
+        self.wind = self.env.wind_data
+        self.depth = self.env.depth_data
+        self.victim_group = None
+
+        # Reset HDF5 path
+        self.hdf5_path = "data/frames" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".h5"
+
+        logger.info({"message": "\033[33mSimulation reset\033[0m"})

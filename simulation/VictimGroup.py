@@ -7,12 +7,12 @@ from simulation.Environment import Environment
 from application.config import Config
 
 class VictimGroup:
-    def __init__(self, x: List[float], y: List[float], z: List[float], lat: List[float], lon: List[float], victim_type: List[str], env: Environment, config_path: str):
-        self.xs = np.array(x, dtype=np.float64)
-        self.ys = np.array(y, dtype=np.float64)
-        self.zs = np.array(z, dtype=np.float64)
+    def __init__(self, lat: List[float], lon: List[float], victim_type: List[str], env: Environment, config_path: str):
+
         self.lats = np.array(lat, dtype=np.float64)
         self.lons = np.array(lon, dtype=np.float64)
+        self.o_lats = np.copy(self.lats)
+        self.o_lons = np.copy(self.lons)
         self.victim_types = np.array([self._parse_type(vt) for vt in victim_type])
 
         self.env=env
@@ -26,11 +26,11 @@ class VictimGroup:
         self.earth_rad = float(self.config.get_value("environment.constants.earth_radius"))
         self.water_density = float(self.config.get_value("environment.constants.water_density"))
 
-        self.areas = self._csa(self.xs, self.ys)
 
         # Lookup mass and drag coefficient per victim
-        self.masses = np.array([float(self.config.get_value(f"victims.{vt.lower()}.avg_mass")) for vt in self.victim_types])
-        self.drag_coeffs = np.array([float(self.config.get_value(f"victims.{vt.lower()}.drag_coefficient")) for vt in self.victim_types])
+        ### Unused ###
+        # self.masses = np.array([float(self.config.get_value(f"victims.{vt.lower()}.avg_mass")) for vt in self.victim_types])
+        # self.drag_coeffs = np.array([float(self.config.get_value(f"victims.{vt.lower()}.drag_coefficient")) for vt in self.victim_types])
 
         # Initialize velocity from the current water state 
         self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
@@ -41,7 +41,6 @@ class VictimGroup:
                 "n_victims": len(self.lats),
                 "dt": self.dt,
                 "pi": self.pi,
-                "areas": self.areas.tolist(),
             }
         })
 
@@ -67,9 +66,6 @@ class VictimGroup:
             "data": {"simulation_timestep_seconds": float(simulation_timestep.seconds), "victim_timestep_seconds": float(victim_timestep.seconds), "steps": steps}
         })
         return steps
-
-    def _csa(self, x, z):
-        return self.pi * x * z
 
     def _position(self):
         d_lat = (self.velocities[:,1] * self.dt) / self.earth_rad * (180/self.pi)
@@ -99,12 +95,8 @@ class VictimGroup:
             self._position()
             self.logger.debug({"event": "update_step", "step": step})
 
-    def all_points(self):
-        # Parent positions: shape (num_victims, 2)
-        parent_positions = np.column_stack((self.lats, self.lons))
-        # Flatten cloud_positions: shape (num_victims * num_cloud_points, 2)
-        cloud_positions = self.cloud_positions.reshape(-1,2)
-
-        all_positions = np.vstack((parent_positions, cloud_positions))
-        return all_positions
+    def reset(self):
+        self.lats = self.o_lats
+        self.lons = self.o_lons
+        self.velocities = self.env.VectorizedQuery(self.lats, self.lons)["net_current"]
         
