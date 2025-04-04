@@ -117,8 +117,8 @@ class GymEnv(gym.Env):
         truncated = (self.cutter.current_step >= self.cutter.max_steps-1) and not terminated
 
         if terminated or truncated:
-            print(f"\033[92m Episode ended at step {self.cutter.current_step} with " +
-                  f"{'termination' if terminated else 'truncation'}\033[00m.")
+            #print(f"\033[92m Episode ended at step {self.cutter.current_step} with {'termination' if terminated else 'truncation'}\033[00m.")
+            ...
 
         return obs, reward, terminated, truncated, {}
 

@@ -199,7 +199,7 @@ class Environment:
         if np.any(out_of_bounds_mask):
             logger.warning({"message": "One or more query points are out of bounds!", "event": "environment_query_bounds_error"})
             # out_of_bounds_points = np.column_stack((lats[out_of_bounds_mask], lons[out_of_bounds_mask]))
-            raise ValueError("One or more query points are out of bounds!")
+            #raise ValueError("One or more query points are out of bounds!")
 
         u_cur, v_cur = self.current_interpolator(lats, lons)
         net_current = np.stack((u_cur, v_cur), axis=-1)

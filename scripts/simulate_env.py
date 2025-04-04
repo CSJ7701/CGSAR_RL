@@ -4,6 +4,7 @@ import numpy as np
 import random
 from datetime import datetime, timedelta
 import argparse
+from tqdm import tqdm
 
 from application.logger import Logger
 import logging
@@ -12,7 +13,7 @@ from simulation.Simulation import Simulation
 
 # Static Variables
 logger = Logger(__name__).get()
-logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.WARN)
 proj_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 config_path = os.path.join(proj_dir,"resources/settings.json")
 
@@ -83,68 +84,87 @@ def main():
     logger.info({"message": f"Saving simulations to base directory {base_output_dir}", "event": "begin_simulation_loop"})
 
     # === Begin ENV Loop ===
-    for i in range(args.env): # Generate 'E' environments
-        env_dir = os.path.join(base_output_dir, f"env_{i+1}")
-        logger.info({"message": f"Initializing environment {i+1}", "event": "simulation_loop_environment", "data":{"env_dir": env_dir}})
-        os.makedirs(env_dir, exist_ok=False)
+    total_iterations = args.env * args.vic * args.count
+    with tqdm(total=total_iterations, desc="Total Progress") as main_bar:
+        for i in tqdm(range(args.env), desc="Environments", leave=False): # Generate 'E' environments
+            env_dir = os.path.join(base_output_dir, f"env_{i+1}")
+            logger.info({"message": f"Initializing environment {i+1}", "event": "simulation_loop_environment", "data":{"env_dir": env_dir}})
+            os.makedirs(env_dir, exist_ok=False)
 
-        # Randomize simulation settings for each environment iteration
-        sim_lat = randomize_value(args.sim_lat, args.sim_lat_range)
-        sim_lon = randomize_value(args.sim_lon, args.sim_lon_range)
-        if args.start:
-            sim_start = datetime.strptime(args.start, "%Y-%m-%dT%H:%M:%S")
-        elif args.start_range:
-            start_range_dates = [datetime.strptime(date, "%Y-%m-%dT%H:%M:%S") for date in args.start_range]
-            dur_days = (start_range_dates[1] - start_range_dates[0]).days
-            dur_seconds = (start_range_dates[1] - start_range_dates[0]).seconds
-            total_dur_hours = ((dur_days * 24) + (dur_seconds // 3600))
-            range_hours = (0, total_dur_hours)
-            sim_start = randomize_date(start_range_dates[0], range_hours)
-        else:
-            raise ValueError("Either --start or --start_range must be provided.")
-        sim_end = sim_start + timedelta(hours=args.duration)
+            # Randomize simulation settings for each environment iteration
+            sim_lat = randomize_value(args.sim_lat, args.sim_lat_range)
+            sim_lon = randomize_value(args.sim_lon, args.sim_lon_range)
+            if args.start:
+                sim_start = datetime.strptime(args.start, "%Y-%m-%dT%H:%M:%S")
+            elif args.start_range:
+                start_range_dates = [datetime.strptime(date, "%Y-%m-%dT%H:%M:%S") for date in args.start_range]
+                dur_days = (start_range_dates[1] - start_range_dates[0]).days
+                dur_seconds = (start_range_dates[1] - start_range_dates[0]).seconds
+                total_dur_hours = ((dur_days * 24) + (dur_seconds // 3600))
+                range_hours = (0, total_dur_hours)
+                sim_start = randomize_date(start_range_dates[0], range_hours)
+            else:
+                raise ValueError("Either --start or --start_range must be provided.")
+            sim_end = sim_start + timedelta(hours=args.duration)
 
 
-        # Create the environment
-        if sim_lat and sim_lon:
-            sim = Simulation(float(sim_lat), float(sim_lon), config_path, sim_start, sim_end)
-        else:
-            raise ValueError("Either sim_lat or sim_lon are not properly defined. Check your input for --lat or --lon.")
+            # Create the environment
+            if sim_lat and sim_lon:
+                sim = Simulation(float(sim_lat), float(sim_lon), config_path, sim_start, sim_end)
+                sim_min_lat, sim_max_lat, sim_min_lon, sim_max_lon = sim.env.bounds
+            else:
+                raise ValueError("Either sim_lat or sim_lon are not properly defined. Check your input for --lat or --lon.")
 
-        # Print simulation settings
-        print(f"Randomized simulation settings: sim_lat={sim_lat}, sim_lon={sim_lon}, sim_start={sim_start}, sim_end={sim_end}")
+            # Print simulation settings
+            # print(f"Randomized simulation settings: sim_lat={sim_lat}, sim_lon={sim_lon}, sim_start={sim_start}, sim_end={sim_end}")
 
 
         # === Begin VIC Loop ===
-        for j in range(args.vic): # Run 'V' victim groups per environment
-            vic_dir = os.path.join(env_dir, f"vics_{j+1}")
-            logger.info({"message": f"Initializing victim group {j+1}", "event": "simulation_loop_victim", "data":{"vic_dir": vic_dir}})
-            os.makedirs(vic_dir, exist_ok=False)
+            for j in tqdm(range(args.vic), desc=f"Victim Groups in Env {i+1}", leave=False): # Run 'V' victim groups per environment
+                vic_dir = os.path.join(env_dir, f"vics_{j+1}")
+                logger.info({"message": f"Initializing victim group {j+1}", "event": "simulation_loop_victim", "data":{"vic_dir": vic_dir}})
+                os.makedirs(vic_dir, exist_ok=False)
 
-            # Randomize victim group settings for each victim iteration
-            vic_lat = randomize_value(args.vic_lat, args.vic_lat_range)
-            vic_lon = randomize_value(args.vic_lon, args.vic_lon_range)
-            base_vic_lat = vic_lat if vic_lat is not None else sim_lat
-            base_vic_lon = vic_lon if vic_lon is not None else sim_lon
-            victim_radius = args.victim_radius
-            num_victims = args.num_victims
+                # Randomize victim group settings for each victim iteration
+                vic_lat = randomize_value(args.vic_lat, args.vic_lat_range)
+                vic_lon = randomize_value(args.vic_lon, args.vic_lon_range)
+                if vic_lat is None:
+                    vic_lat = randomize_value(None, (sim_min_lat, sim_max_lat))
+                if vic_lon is None:
+                    vic_lon = randomize_value(None, (sim_min_lon, sim_max_lon))
+                base_vic_lat = vic_lat if vic_lat is not None else sim_lat
+                base_vic_lon = vic_lon if vic_lon is not None else sim_lon
+                victim_radius = args.victim_radius
+                num_victims = args.num_victims
 
-            r = np.random.uniform(0, victim_radius, num_victims)
-            theta = np.random.uniform(0, 2*np.pi, num_victims)
-            victim_latitudes = base_vic_lat + r*np.cos(theta)
-            victim_longitudes = base_vic_lon + r*np.sin(theta)
-            victim_types = np.full(num_victims, "piw")
-            victim_group = VictimGroup(lat=victim_latitudes, lon=victim_longitudes, victim_type=victim_types, env=sim.env, config_path=config_path)
+                # Define a buffer so victims aren't too close to the simulation boundary
+                buffer_lat = (sim_max_lat - sim_min_lat) * 0.4
+                buffer_lon = (sim_max_lon - sim_min_lon) * 0.4
+                inset_min_lat = sim_min_lat + buffer_lat
+                inset_max_lat = sim_max_lat - buffer_lat
+                inset_min_lon = sim_min_lon + buffer_lon
+                inset_max_lon = sim_max_lon - buffer_lon
 
-            # Print victim group settings
-            print(f"Randomized victim group settings: base_vic_lat={base_vic_lat}, base_vic_lon={base_vic_lon}, victim_radius={victim_radius}, num_victims={num_victims}")
+                r = np.random.uniform(0, victim_radius, num_victims)
+                theta = np.random.uniform(0, 2*np.pi, num_victims)
+                #victim_latitudes = base_vic_lat + r*np.cos(theta)
+                #victim_longitudes = base_vic_lon + r*np.sin(theta)
+                victim_latitudes = np.clip(base_vic_lat + r*np.cos(theta), inset_min_lat, inset_max_lat)
+                victim_longitudes = np.clip(base_vic_lon + r*np.sin(theta), inset_min_lon, inset_max_lon)
+                victim_types = np.full(num_victims, "piw")
+                
 
-            # Run with output directory
-            for c in range(args.count):
-                sim.Reset()
-                sim._add_victim_group(victim_group)
-                sim.Run(save_dir=vic_dir)
+                # Print victim group settings
+                # print(f"Randomized victim group settings: base_vic_lat={base_vic_lat}, base_vic_lon={base_vic_lon}, victim_radius={victim_radius}, num_victims={num_victims}")
 
+                # Run with output directory
+                for c in tqdm(range(args.count), desc=f"Iterations in Vic Group {j+1}", leave=False):
+                    victim_group = VictimGroup(lat=victim_latitudes, lon=victim_longitudes, victim_type=victim_types, env=sim.env, config_path=config_path)
+                    sim.Reset()
+                    sim._add_victim_group(victim_group)
+                    sim.Run(save_dir=vic_dir)
+
+                    main_bar.update(1)
 
 if __name__ == "__main__":
     main()

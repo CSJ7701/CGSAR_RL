@@ -24,7 +24,7 @@ class MessageFormatter(logging.Formatter):
         return super().format(record)
 
 class Logger:
-    def __init__(self, name, run_id=None, file_prefix=None, log_dir="data/logs", level=logging.DEBUG, file_max_bytes=10*1024*1024, backup_count=20):
+    def __init__(self, name, run_id=None, file_prefix=None, log_dir="data/logs", level=logging.WARN, file_max_bytes=10*1024*1024, backup_count=20):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
         self.logger.propagate=False
