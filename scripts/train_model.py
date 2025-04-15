@@ -24,11 +24,13 @@ def parse_args():
     train.add_argument("-S", "--simulations", type=int, required=True, help="Number of simulation environments to train on.")
     train.add_argument("-I", "--iterations", type=int, required=True, help="Number of iterations per environment.")
     train.add_argument("-E", "--episodes", type=int, required=True, help="Number of episodes per iteration.")
-    train.add_argument("-e", "--environment_dir", type=str, required=True, help="Path to the simulation data directory.")
+    train.add_argument("-e", "--environment_dir", type=str, required=True, help="Path to the simulation data directory, or single file.")
+    
     train.add_argument("-y", "--evaluation", type=int, default=None, help="Interval in iterations at which to show an evaluation step. Default is 0, or no evaluation. If enabled, higher numbers are recommended.")
 
     cutter = parser.add_argument_group("Agent Parameters", "Parameters to define the behavior of the agent, representing a CG Cutter.")
-    ...
+    cutter.add_argument("-p", "--position", type=float, nargs=2, default=None, help="Specify a fixed position (lat, lon)")
+    
 
     return parser.parse_args()
 
@@ -43,6 +45,8 @@ def validate_data_dir(directory: str) -> bool:
     :return: True if the structure matches, False otherwise.
     """
     if not os.path.isdir(directory):
+        if directory.endswith(".h5"):
+            return True
         logger.fatal({"event": "invalid_data_dir", "message": "Data directory does not exist."})
         return False
 
@@ -112,27 +116,28 @@ def randomize_cutter_position(data_file: str) -> Tuple[float, float]:
             lat_idx = (np.abs(latitudes - lat)).argmin()
             lon_idx = (np.abs(longitudes - lon)).argmin()
 
-            if land_mask[lat_idx, lon_idx] > 0:
+            if land_mask[lat_idx, lon_idx] < 1:
                 return False
 
             region = land_mask[
                 max(0, lat_idx - 1) : min(lat_idx + 2, land_mask.shape[0]),
                 max(0, lon_idx - 1) : min(lon_idx + 2, land_mask.shape[1]),
             ]
-            return np.all(region == 0)
+            return np.all(region == 1)
 
         for _ in range(1000):
             lat = random.uniform(lat_min, lat_max)
             lon = random.uniform(lon_min, lon_max)
             if is_valid_position(lat, lon):
                 return (lat, lon)
+            print(f"Invalid position: ({lat}, {lon})")
 
         raise RuntimeError("Could not find a valid position...")
 
 def start_tensorboard(log_dir="./data/tensorboard", port=6006):
     subprocess.Popen(["tensorboard", "--logdir", log_dir, "--port", str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def train(data_file: str, episodes: int, cutter_lon: float, cutter_lat: float, model_path: str, tensorboard_path: str = "./data/tensorboard", iteration_bar: Optional[tqdm] = None):
+def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, model_path: str, tensorboard_path: str = "./data/tensorboard", iteration_bar: Optional[tqdm] = None):
 
     if not data_file or not episodes:
         raise ValueError("Missing training parameters.")
@@ -149,7 +154,7 @@ def train(data_file: str, episodes: int, cutter_lon: float, cutter_lat: float, m
             device="cuda",
             tensorboard_log=tensorboard_path,
             n_steps = env.cutter.max_steps,
-            batch_size = 72,
+            batch_size = 72
             )
     else:
         model = PPO.load(
@@ -168,7 +173,7 @@ def train(data_file: str, episodes: int, cutter_lon: float, cutter_lat: float, m
         iteration_bar.update(1)
 
 def evaluate(data_file: str, cutter_lat: float, cutter_lon: float, model_path: str):
-    if not os.path.exists:
+    if not os.path.exists(model_path):
         raise ValueError("Model does not exist.")
     
     env = GymEnv(data_file, cutter_lat, cutter_lon, "resources/settings.json")
@@ -194,13 +199,19 @@ def main():
     with tqdm(total = total_iteration_count, desc="Total Progress") as total_bar:
         with tqdm(total = args.simulations, desc="Simulations") as sim_bar:
             for sim in range(args.simulations):
-                data = get_data_file(args.environment_dir)
+                if args.environment_dir.endswith(".h5"):
+                    data = args.environment_dir
+                else:
+                    data = get_data_file(args.environment_dir)
                 logger.info({"message": f"Training on env [{sim+1}/{args.simulations}] at {data}"})
                 with tqdm(total=args.iterations, desc=f"Iterations (Sim {sim+1})", leave=False) as iteration_bar:
                     for i in range(args.iterations):
                         logger.info({"message": f"Beginning training iteration [{i+1}/{args.iterations}]"})
                         total_iterations+=1
-                        position = randomize_cutter_position(data) # lat, lon
+                        if args.position:
+                            position = args.position
+                        else:
+                            position = randomize_cutter_position(data) # lat, lon
                         train(data, args.episodes, position[0], position[1], "first_model", iteration_bar=iteration_bar)
                         if args.evaluation and total_iterations%args.evaluation == 0:
                             evaluate(data, 30.0, -80.1, "first_model")

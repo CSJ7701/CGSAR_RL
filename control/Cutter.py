@@ -121,9 +121,31 @@ class Cutter:
             aground = False
         return aground
 
-    def _rescale_heatmap(self, target_shape):
+    def _rescale_heatmap_old(self, target_shape):
         scale_factors = (target_shape[0]/self.heatmap.shape[0], target_shape[1]/self.heatmap.shape[1])
         return zoom(self.heatmap, scale_factors, order=1)
+
+    def _rescale_heatmap(self, target_shape):
+        """
+        Rescale the heatmap to match the target shape while preserving important features.
+        """
+        # Ensure heatmap not empty
+        if np.all(self.heatmap == 0):
+            return np.zeros(target_shape)
+
+        # Use order=1 for bilinear interpolation, preserves gradients
+        # better than nearest neighbor (order=0) while being less computationally
+        # expensive than cubic (order=3)
+        scale_factors = (target_shape[0]/self.heatmap.shape[0],
+            target_shape[1]/self.heatmap.shape[1])
+
+        rescaled = zoom(self.heatmap, scale_factors, order=1)
+
+        # Preserve the sum of heatmap values to maintain probability mass
+        if np.sum(self.heatmap) > 0 and np.sum(rescaled)>0:
+            rescaled = rescaled * (np.sum(self.heatmap) / np.sum(rescaled))
+
+        return rescaled
 
     def _compute_relative_position(self):
         x = (self.lon-self.lon_center) * np.cos(np.radians(self.lat_center)) * 60 # Convert degrees to nautical miles
@@ -138,6 +160,126 @@ class Cutter:
             return self.rescaled_heatmap[row_idx, col_idx]
         else:
             return 0
+
+    def _get_local_heatmap(self, x,y,window_size):
+        """
+        Extract a fixed-size window from the heatmap centered on the cutter's position.
+        This provides local spatial context without the dimension problems of trying to parse the whole heatmap.
+        """
+
+        grid_y = int(round(y)) + len(self.latitudes) // 2
+        grid_x = int(round(x)) + len(self.longitudes) // 2
+
+        # Ensure grid indices are within bounds
+        grid_y = max(0, min(grid_y, len(self.latitudes) - 1))
+        grid_x = max(0, min(grid_x, len(self.longitudes) - 1))
+
+        #print(f"Heatmap shape: {self.rescaled_heatmap.shape}")
+        #print(f"Center: ({center_x}, {center_y}), Grid pos: ({grid_x}, {grid_y})")
+
+        # Create a padded verison of the rescaled heatmap to handle edge cases
+        padded_heatmap = np.pad(self.rescaled_heatmap, window_size, mode='constant')
+
+        padded_y = grid_y + window_size
+        padded_x = grid_x + window_size
+
+        # Extract window
+        local_view = padded_heatmap[
+            padded_y-window_size:padded_y+window_size+1,
+            padded_x-window_size:padded_x+window_size+1
+        ]
+
+        # Normalize to 0-1 (if not there already)
+        if len(local_view) == 0:
+            local_view = np.zeros(padded_x, padded_y)
+        max_val = np.max(local_view)
+        if max_val > 0:
+            local_view = local_view / max_val
+
+        return local_view
+
+    def _get_direction_to_heatmap(self):
+        """
+        Calculate a unit vector pointing from the cutter toward the highest heatmap value.
+        """
+        x,y = self._compute_relative_position()
+        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
+
+        max_idx = np.unravel_index(np.argmax(self.rescaled_heatmap), self.rescaled_heatmap.shape)
+        max_y, max_x = max_idx
+
+        center_y = heatmap_height//2
+        center_x = heatmap_width//2
+
+        target_y = center_y-max_y
+        target_x = center_x-max_x
+
+        dx = target_x - x
+        dy = target_y - y
+
+        magnitude = np.sqrt(dx**2 + dy**2)
+        if magnitude > 0:
+            dx /= magnitude
+            dy /= magnitude
+
+        return dx,dy
+
+    def _get_weighted_direction(self):
+        """
+        Calculate a weighted direction vector considering all non-zero heatmap values.
+    
+        Returns:
+        Tuple (dx, dy) of normalized direction components
+        """
+        x, y = self._compute_relative_position()
+        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
+        center_y = heatmap_height // 2
+        center_x = heatmap_width // 2
+    
+        # Find all non-zero heatmap cells
+        non_zero_indices = np.argwhere(self.rescaled_heatmap > 0)
+    
+        if len(non_zero_indices) == 0:
+            return 0, 0  # No direction if no non-zero values
+    
+        # Initialize weighted direction
+        weighted_dx = 0
+        weighted_dy = 0
+    
+        # Process each non-zero cell
+        for idx in non_zero_indices:
+            cell_y, cell_x = idx
+        
+            # Convert to relative coordinates
+            target_y = (center_y - cell_y)  # Inverted y-axis
+            target_x = (cell_x - center_x)
+        
+            # Get cell value (weight)
+            cell_value = self.rescaled_heatmap[cell_y, cell_x]
+        
+            # Calculate direction and distance
+            dx = target_x - x
+            dy = target_y - y
+            distance = np.sqrt(dx**2 + dy**2)
+        
+            # Skip if we're at the exact location to avoid division by zero
+            if distance < 0.001:
+                continue
+            
+            # Weight by value and inverse distance
+            weight = cell_value / (distance + 0.1)  # Add small constant to avoid division by zero
+        
+            # Accumulate weighted direction
+            weighted_dx += dx * weight / distance  # Normalize to unit vector before applying weight
+            weighted_dy += dy * weight / distance
+    
+        # Normalize final direction
+        magnitude = np.sqrt(weighted_dx**2 + weighted_dy**2)
+        if magnitude > 0:
+            weighted_dx /= magnitude
+            weighted_dy /= magnitude
+    
+        return weighted_dx, weighted_dy    
 
     def _get_heatmap_distance(self,x,y) -> float:
         
@@ -239,12 +381,56 @@ class Cutter:
         x, y = self._compute_relative_position()
         depth_under_keel = self._get_depth() - self.draft
         victim_nearby = self.victim_check()
+        
+        direction_x, direction_y = self._get_direction_to_heatmap()
+        weighted_dx, weighted_dy = self._get_weighted_direction()
 
-        heatmap_flat = self.rescaled_heatmap.flatten()
+        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
+        center_x = heatmap_height//2
+        center_y = heatmap_width//2
+        grid_x = center_x - int(round(x))
+        grid_y = center_y - int(round(y))
+        grid_x = max(0, min(grid_x, heatmap_width - 1))
+        grid_y = max(0, min(grid_y, heatmap_height - 1))
+        heatmap_value = self.rescaled_heatmap[grid_y, grid_x]
 
-        return np.concatenate([
-            np.array([x, y, depth_under_keel, victim_nearby, self.time_step, self.current_step], dtype=np.float32),
-            heatmap_flat
+        distance = self._get_heatmap_distance(x,y)
+        normalized_distance = np.tanh(distance / 20.0)
+
+        # Normalize scalars to -1 to 1
+        norm_depth = np.tanh(depth_under_keel / 20.0) # Assuming semi-typical(?) depths
+        norm_time = self.current_step / self.max_steps if self.max_steps > 0 else 0
+
+        window_size = 5
+        local_heatmap = self._get_local_heatmap(x,y,window_size)
+
+        # Observation vector
+        obs = np.concatenate([
+            np.array([
+                norm_depth,                       # Normalized depth under keel
+                float(victim_nearby),             # Binary indicator if victim is nearby (Do I need this? If true then episode ends...
+                direction_x,                      # Direction to max heatmap val (x)
+                direction_y,                      # Direction to max heatmap val (y)
+                weighted_dx,                      # Weighted direction (x)
+                weighted_dy,                      # Weighted direction (y)
+                normalized_distance,              # Normalized distance to nearest non-zero value
+                heatmap_value,                    # Heatmap value at point
+                norm_time,                        # Normalized time step
+            ], dtype=np.float32),
+
+            # Flattened local heatmap view (fixed size regardless of total map dimensions)
+           # local_heatmap.flatten()
         ])
+                
+        # Old approach...
+        #distance_to_heatmap = self._get_heatmap_distance(x,y)
+        #heatmap_value_at_point = self._get_heatmap_value(x,y)
+        #return np.concatenate([
+        #np.array([x, y, depth_under_keel, victim_nearby, distance_to_heatmap, heatmap_value_at_point, self.time_step, self.current_step], dtype=np.float32),
+        #])
+
+        return obs
         
         
+     
+   

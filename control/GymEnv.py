@@ -27,6 +27,25 @@ class GymEnv(gym.Env):
             dtype=np.float64
         )
 
+        #self.setup_observation_space()
+
+    def setup_observation_space(self):
+        # Calculate the total size of the observation space.
+        #window_size = 5
+        #local_heatmap_size = (2*window_size + 1) ** 2
+        local_heatmap_size = 0
+        scalar_features = 9
+
+        obs_size = scalar_features + local_heatmap_size
+
+        self.observation_space = spaces.Box(
+            low = np.full(obs_size, -1.0, dtype = np.float32),
+            high = np.full(obs_size, 1.0, dtype = np.float32),
+            dtype = np.float32
+        )
+        
+        
+
     def _get_heatmap_value(self):
         """
         Determines value of the heatmap cell the cutter is currently in.
@@ -59,39 +78,33 @@ class GymEnv(gym.Env):
         return self.cutter.observe(), {}
 
     def reward(self):
+        x,y = self.cutter._compute_relative_position()
 
         # Reward for being in a heatmap cell, scaled by heatmap value
-        x,y = self.cutter._compute_relative_position()
-        heatmap_reward = 10 * self.cutter._get_heatmap_value(x,y) # 0-100 in steps of 10
+        heatmap_value = self.cutter._get_heatmap_value(x,y)
+        heatmap_reward = 10 * heatmap_value # 0-10 scale 
 
-        # Reward based on distance to heatmap
+        # Reward based on distance to heatmap - exponential decay
         distance = self.cutter._get_heatmap_distance(x,y)
-        distance_reward = 5 * (1/distance) # Inverse scale based on distance
+        distance_reward = 5 * np.exp(-distance/5.0)
 
-        # Reward for finding a victim
-        victim_reward = 0
-        if self.cutter.victim_check():
-            victim_reward = 1000
+        # Main reward for finding a victim
+        victim_reward = 100 if self.cutter.victim_check() else 0
 
         # Penalty for running aground
-        aground_penalty = -5000 if self.cutter.is_aground() else 0
+        aground_penalty = -50 if self.cutter.is_aground() else 0
 
-        # Penalty for timestep
-        if not self.cutter.current_step:
-            time_penalty = 0
-        else:
-            # time_penalty = -1 * int(self.cutter.current_step)
-            time_penalty = -1
+        # Small time penalty to encourage efficiency
+        time_penalty = -0.1
 
-        # print({
-        #     "heatmap": heatmap_reward,
-        #     "distance": distance_reward,
-        #     "victim": victim_reward,
-        #     "aground": aground_penalty,
-        #     "time": time_penalty
-        # })
-
-        total_reward = heatmap_reward + distance_reward + victim_reward + aground_penalty + time_penalty
+        total_reward = (
+            heatmap_reward +
+            distance_reward +
+            victim_reward +
+            aground_penalty +
+            time_penalty
+        )
+        
         return total_reward
 
     def step(self, action):

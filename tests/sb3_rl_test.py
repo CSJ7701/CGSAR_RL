@@ -6,7 +6,7 @@ from control.GymEnv import GymEnv
 from math import ceil
 
 # ✅ Initialize your custom environment
-env = GymEnv("data/frames/big_env_2.h5",30.0, -80.1, "resources/settings.json")
+env = GymEnv("data/frames/big_env_2.h5",30.0, -79.3, "resources/settings.json")
 env_vis_mode = "human"
 
 # ✅ Create the PPO model
@@ -27,6 +27,7 @@ print("Starting training...")
 episode_size = env.cutter.max_steps
 target_episodes = 100000
 episode_scale_factor = ceil(target_episodes / episode_size)
+print(episode_scale_factor * episode_size)
 model.learn(total_timesteps=episode_scale_factor * episode_size)  # Train for 100 episodes
 print("Training complete!")
 
