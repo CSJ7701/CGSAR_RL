@@ -17,8 +17,8 @@ model = PPO(
     device="cpu",
     tensorboard_log="./data/tensorboard",  # Log training data for TensorBoard
     n_steps = env.cutter.max_steps,
-    batch_size = 72,
-)
+    batch_size = env.cutter.max_steps
+    )
 
 
 # ✅ Train the model
