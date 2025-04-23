@@ -1,7 +1,10 @@
-from os import truncate
+import random
+from typing import Tuple
+from collections import deque
 import gymnasium as gym
 from gymnasium import spaces
 from gymnasium.utils import seeding
+import h5py
 import numpy as np
 from .Cutter import Cutter
 from simulation.Visualizer import Visualizer
@@ -18,7 +21,8 @@ class GymEnv(gym.Env):
         self.cutter = Cutter(hdf5_path, lat, lon, config_path)
 
         # Define action space (Discrete: 4 possible movements)
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(8)
+        self.action_queue = deque(maxlen=8)
 
         obs_values = self.cutter.observe().shape[0]
         self.observation_space = spaces.Box(
@@ -44,6 +48,40 @@ class GymEnv(gym.Env):
             dtype = np.float32
         )
         
+    def _randomize_cutter_position(self) -> Tuple[float, float]:
+
+        with h5py.File(self.data_path, 'r') as data:
+            latitudes = data["step_1/current/latitude"]
+            longitudes = data["step_1/current/longitude"]
+            land_mask = data["step_1/depth/mask"][0]
+
+            if len(latitudes) == 0 or len(longitudes) == 0:
+                raise ValueError("Latitude or Longitude data is empty.")
+
+            lat_min, lat_max = np.min(latitudes), np.max(latitudes)
+            lon_min, lon_max = np.min(longitudes), np.max(longitudes)
+
+            def is_valid_position(lat, lon):
+                lat_idx = (np.abs(latitudes - lat)).argmin()
+                lon_idx = (np.abs(longitudes - lon)).argmin()
+
+                if land_mask[lat_idx, lon_idx] < 1:
+                    return False
+
+                region = land_mask[
+                    max(0, lat_idx-1) : min(lat_idx + 2, land_mask.shape[0]),
+                    max(0, lon_idx-1) : min(lon_idx + 2, land_mask.shape[1]),
+                ]
+                return np.all(region==1)
+
+            for _ in range(1000):
+                lat = random.uniform(lat_min, lat_max)
+                lon = random.uniform(lon_min, lon_max)
+                if is_valid_position(lat, lon):
+                    return (lat, lon)
+                print(f"Invalid position: ({lat}, {lon})")
+            raise RuntimeError("Could not find a valid position...")
+                
         
 
     def _get_heatmap_value(self):
@@ -66,43 +104,69 @@ class GymEnv(gym.Env):
         self.np_random, _ = gym.utils.seeding.np_random(seed)
             
         data_path = self.cutter.data_path
-        lat = self.cutter.path["start"][0][0]
-        lon = self.cutter.path["start"][0][1]
+        #lat = self.cutter.path["start"][0][0]
+        #lon = self.cutter.path["start"][0][1]
+        if options and 'initial_position' in options:
+            self.cutter_position = options['initial_position']
+        else:
+            self.cutter_position = self._randomize_cutter_position()
+        lat, lon = self.cutter_position
         config = self.cutter.config.file_path
         self.cutter = Cutter(data_path, lat, lon, config)
 
         # Random victim index, to select "true" victim.
         self.victim_index = self.np_random.integers(0, len(self.cutter.victim_position)-1)
+        self.cutter._load_true_victim(self.victim_index)
         
         # Returns (obs, info)
         return self.cutter.observe(), {}
+
+    def _compute_straightness(self):
+        if len(self.action_queue) < 2:
+            return 0 # Not enough data to judge behavior
+        num_unique = len(set(self.action_queue))
+        if num_unique == 1:
+            return +0.1
+        elif 2 <= num_unique <= 2:
+            return -0.1
+        elif 4 <= num_unique <= 6:
+            return -0.2
+        else: # 7 or 8
+            return -0.5
 
     def reward(self):
         x,y = self.cutter._compute_relative_position()
 
         # Reward for being in a heatmap cell, scaled by heatmap value
         heatmap_value = self.cutter._get_heatmap_value(x,y)
-        heatmap_reward = 10 * heatmap_value # 0-10 scale 
+        #heatmap_reward = 1 * heatmap_value # 0-10 scale 
+        heatmap_reward = 0
+
+        straightness_reward = self._compute_straightness()
 
         # Reward based on distance to heatmap - exponential decay
         distance = self.cutter._get_heatmap_distance(x,y)
-        distance_reward = 5 * np.exp(-distance/5.0)
+        #distance_reward = 5 * np.exp(-distance/5.0)
+        #distance_reward = -(distance**2) if heatmap_value == 0 else 0
+        distance_reward = np.tanh(-distance/15) if heatmap_value == 0 else 0
+        # Tanh gives curved falloff from 0 to -1. decent slope until coefficient (15), then starts to level off and meet asymptote
 
         # Main reward for finding a victim
-        victim_reward = 100 if self.cutter.victim_check() else 0
+        victim_reward = 1000 if self.cutter.victim_check() else 0
 
         # Penalty for running aground
-        aground_penalty = -50 if self.cutter.is_aground() else 0
+        aground_penalty = -5000 if self.cutter.is_aground() else 0
 
         # Small time penalty to encourage efficiency
-        time_penalty = -0.1
+        time_penalty = -1
 
         total_reward = (
             heatmap_reward +
             distance_reward +
             victim_reward +
             aground_penalty +
-            time_penalty
+            time_penalty +
+            straightness_reward
         )
         
         return total_reward
@@ -119,9 +183,10 @@ class GymEnv(gym.Env):
             terminated = False
             return self.cutter.observe(), 0, terminated, truncated, {}
         
-        direction_map = {0:'N', 1:'S', 2:'E', 3:'W'}
+        direction_map = {0:'N', 1:'S', 2:'E', 3:'W', 4:'NE', 5:'SE', 6:'NW', 7:'SW'}
         direction = direction_map[int(action)]
         self.cutter.update(direction)
+        self.action_queue.append(int(action))
 
         obs = self.cutter.observe()
         reward = self.reward()

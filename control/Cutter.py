@@ -156,47 +156,10 @@ class Cutter:
         row_idx = int(round(y))
         col_idx = int(round(x))
 
-        if 0 <= row_idx < self.rescaled_heatmap.shape[0] and 0 <= col_idx < self.rescaled_heatmap.shape[1]:
-            return self.rescaled_heatmap[row_idx, col_idx]
+        if 0 <= row_idx < self.heatmap.shape[0] and 0 <= col_idx < self.heatmap.shape[1]:
+            return self.heatmap[row_idx, col_idx]
         else:
             return 0
-
-    def _get_local_heatmap(self, x,y,window_size):
-        """
-        Extract a fixed-size window from the heatmap centered on the cutter's position.
-        This provides local spatial context without the dimension problems of trying to parse the whole heatmap.
-        """
-
-        grid_y = int(round(y)) + len(self.latitudes) // 2
-        grid_x = int(round(x)) + len(self.longitudes) // 2
-
-        # Ensure grid indices are within bounds
-        grid_y = max(0, min(grid_y, len(self.latitudes) - 1))
-        grid_x = max(0, min(grid_x, len(self.longitudes) - 1))
-
-        #print(f"Heatmap shape: {self.rescaled_heatmap.shape}")
-        #print(f"Center: ({center_x}, {center_y}), Grid pos: ({grid_x}, {grid_y})")
-
-        # Create a padded verison of the rescaled heatmap to handle edge cases
-        padded_heatmap = np.pad(self.rescaled_heatmap, window_size, mode='constant')
-
-        padded_y = grid_y + window_size
-        padded_x = grid_x + window_size
-
-        # Extract window
-        local_view = padded_heatmap[
-            padded_y-window_size:padded_y+window_size+1,
-            padded_x-window_size:padded_x+window_size+1
-        ]
-
-        # Normalize to 0-1 (if not there already)
-        if len(local_view) == 0:
-            local_view = np.zeros(padded_x, padded_y)
-        max_val = np.max(local_view)
-        if max_val > 0:
-            local_view = local_view / max_val
-
-        return local_view
 
     def _get_direction_to_heatmap(self):
         """
@@ -205,7 +168,7 @@ class Cutter:
         x,y = self._compute_relative_position()
         heatmap_height, heatmap_width = self.rescaled_heatmap.shape
 
-        max_idx = np.unravel_index(np.argmax(self.rescaled_heatmap), self.rescaled_heatmap.shape)
+        max_idx = np.unravel_index(np.argmax(self.heatmap), self.heatmap.shape)
         max_y, max_x = max_idx
 
         center_y = heatmap_height//2
@@ -232,12 +195,12 @@ class Cutter:
         Tuple (dx, dy) of normalized direction components
         """
         x, y = self._compute_relative_position()
-        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
+        heatmap_height, heatmap_width = self.heatmap.shape
         center_y = heatmap_height // 2
         center_x = heatmap_width // 2
     
         # Find all non-zero heatmap cells
-        non_zero_indices = np.argwhere(self.rescaled_heatmap > 0)
+        non_zero_indices = np.argwhere(self.heatmap > 0)
     
         if len(non_zero_indices) == 0:
             return 0, 0  # No direction if no non-zero values
@@ -255,7 +218,7 @@ class Cutter:
             target_x = (cell_x - center_x)
         
             # Get cell value (weight)
-            cell_value = self.rescaled_heatmap[cell_y, cell_x]
+            cell_value = self.heatmap[cell_y, cell_x]
         
             # Calculate direction and distance
             dx = target_x - x
@@ -296,6 +259,42 @@ class Cutter:
         min_dist = np.min(distance.cdist([(x,y)], heatmap_coords))
         return min_dist
 
+    def _get_local_heatmap(self, window_size=5):
+        """
+        Extract a local window of the heatmap centered at the cutter's current position,
+        using latitude and longitude coordinates for indexing.
+
+        :param window_size: Radius of the window in grid cells (default 5, produces 11x11 grid)
+        :return: a normalized local heatmap window as a numpy array.
+        """
+        lat_idx = np.abs(self.heatmap_latitudes - self.lat).argmin()
+        lon_idx = np.abs(self.heatmap_longitudes - self.lon).argmin()
+
+        # Heatmap dimensions
+        heatmap_height, heatmap_width = self.heatmap.shape
+
+        # Empty local heatmap
+        local_heatmap = np.zeros((2*window_size+1, 2*window_size+1))
+
+        # Fill in with values from global heatmap
+        for i in range(2*window_size+1):
+            for j in range(2*window_size+1):
+                # Calculate indices
+                hm_lat_idx = lat_idx + (i - window_size)
+                hm_lon_idx = lon_idx + (j - window_size)
+
+                # Check if in bounds
+                if 0 <= hm_lat_idx < heatmap_height and 0 <= hm_lon_idx < heatmap_width:
+                    local_heatmap[i,j] = self.heatmap[hm_lat_idx, hm_lon_idx]
+
+        # Normalize
+        max_val = np.max(local_heatmap)
+        if max_val > 0:
+            local_heatmap = local_heatmap / max_val
+
+        return local_heatmap
+        
+
     def move(self, direction):
         """
         Move the Cutter in the specified direction, considering its speed and the time step.
@@ -318,20 +317,47 @@ class Cutter:
         # Calculate displacement
         displacement_nm = speed_nm_per_sec * self.time_step
 
+        # Displacement components for diagonal motion
+        lat_change = 0
+        lon_change = 0
+
         # Approximate conversion (1 nm ~~ 1/60th of a degree)
         if direction == 'N':
-            self.lat += displacement_nm / 60
+            lat_change = displacement_nm / 60
             self.orientation = 0
         elif direction == 'S':
-            self.lat -= displacement_nm / 60
+            lat_change = -displacement_nm / 60
             self.orientation = 180
         elif direction == 'E':
-            self.lon += displacement_nm / (60*np.cos(np.radians(self.lat)))
+            lon_change = displacement_nm / (60*np.cos(np.radians(self.lat)))
             self.orientation = 90
         elif direction == 'W':
-            self.lon -= displacement_nm / (60*np.cos(np.radians(self.lat)))
+            lon_change = -displacement_nm / (60*np.cos(np.radians(self.lat)))
             self.orientation = 270
+        elif direction == 'NE':
+            diag_displacement = displacement_nm / np.sqrt(2)
+            lat_change = diag_displacement / 60
+            lon_change = diag_displacement / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 45
+        elif direction == 'SE':
+            diag_displacement = displacement_nm / np.sqrt(2)
+            lat_change = -diag_displacement / 60
+            lon_change = diag_displacement / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 135
+        elif direction == 'SW':
+            diag_displacement = displacement_nm / np.sqrt(2)
+            lat_change = -diag_displacement / 60
+            lon_change = -diag_displacement / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 225
+        elif direction == 'NW':
+            diag_displacement = displacement_nm / np.sqrt(2)
+            lat_change = diag_displacement / 60
+            lon_change = -diag_displacement / (60*np.cos(np.radians(self.lat)))
+            self.orientation = 315
 
+        self.lat += lat_change
+        self.lon += lon_change
+        
         # Update the cutter's position
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
 
@@ -385,14 +411,14 @@ class Cutter:
         direction_x, direction_y = self._get_direction_to_heatmap()
         weighted_dx, weighted_dy = self._get_weighted_direction()
 
-        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
+        heatmap_height, heatmap_width = self.heatmap.shape
         center_x = heatmap_height//2
         center_y = heatmap_width//2
         grid_x = center_x - int(round(x))
         grid_y = center_y - int(round(y))
         grid_x = max(0, min(grid_x, heatmap_width - 1))
         grid_y = max(0, min(grid_y, heatmap_height - 1))
-        heatmap_value = self.rescaled_heatmap[grid_y, grid_x]
+        heatmap_value = self.heatmap[grid_y, grid_x]
 
         distance = self._get_heatmap_distance(x,y)
         normalized_distance = np.tanh(distance / 20.0)
@@ -401,8 +427,9 @@ class Cutter:
         norm_depth = np.tanh(depth_under_keel / 20.0) # Assuming semi-typical(?) depths
         norm_time = self.current_step / self.max_steps if self.max_steps > 0 else 0
 
+        # Local heatmap
         window_size = 5
-        local_heatmap = self._get_local_heatmap(x,y,window_size)
+        local_heatmap = self._get_local_heatmap(window_size)
 
         # Observation vector
         obs = np.concatenate([
@@ -419,7 +446,7 @@ class Cutter:
             ], dtype=np.float32),
 
             # Flattened local heatmap view (fixed size regardless of total map dimensions)
-           # local_heatmap.flatten()
+            local_heatmap.flatten()
         ])
                 
         # Old approach...
