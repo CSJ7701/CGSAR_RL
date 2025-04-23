@@ -106,7 +106,7 @@ class Visualizer:
         self.wind_interpolator_u = RegularGridInterpolator((wind_lat, wind_lon), uw, bounds_error=False, fill_value=0)
         self.wind_interpolator_v = RegularGridInterpolator((wind_lat, wind_lon), vw, bounds_error=False, fill_value=0)
 
-    def _create_transparent_colormap(self):
+    def _purple_transparent_colormap(self):
         """Creates a colormap that is transparent for low values."""
 
         # Generate colors for our custom colormap
@@ -131,6 +131,20 @@ class Visualizer:
                     colors.append((r,g,b,t))
                     break
         return mcolors.LinearSegmentedColormap.from_list('custom_purple', colors)
+
+    def _mpl_transparent_colormap(self):
+        """Creates a colormap that is tranparent for low values, built off a built-in colormap."""
+        base_cmap = plt.cm.get_cmap('plasma')
+
+        # List of colors with transparency scaling with value
+        colors = []
+        for i in range(256):
+            t = i/255.0
+            rgba = base_cmap(i)
+            alpha = t**0.5
+            colors.append((rgba[0], rgba[1], rgba[2], alpha))
+
+        return mcolors.LinearSegmentedColormap.from_list('transparent_builtin', colors)
     
     def _heatmap(self):
         """Creates a numpy histogram. This should move somewhere else later."""
@@ -176,10 +190,10 @@ class Visualizer:
 
         # Heatmap
         if self.heatmap.size != 0:
-            custom_cmap = self._create_transparent_colormap()
+            custom_cmap = self._mpl_transparent_colormap()
             self.heatmap_img = self.ax.pcolormesh(
                 self.x_edges, self.y_edges, self.heatmap,
-                cmap=custom_cmap,
+                cmap='plasma',
                 norm='log',
                 shading='flat',
                 alpha=0.8,
@@ -187,7 +201,7 @@ class Visualizer:
             )
         
         # Vectors
-        self.currents = self.ax.quiver(lon_grid, lat_grid, self.uo, self.vo, color='red', alpha=0.7, label='Currents')
+        self.currents = self.ax.quiver(lon_grid, lat_grid, self.uo, self.vo, color='teal', alpha=0.4, label='Currents')
         #self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
