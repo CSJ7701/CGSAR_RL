@@ -145,8 +145,10 @@ def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, m
     env = GymEnv(data_file, cutter_lat, cutter_lon, "resources/settings.json")
 
     start_tensorboard(log_dir=tensorboard_path)
-    
+
+    model_path = os.path.abspath(model_path + ".zip")
     if not os.path.exists(model_path):
+        print(f"\n\033[93mCREATING A NEW MODEL at {model_path}....\033[0m\n")
         model = PPO(
             "MlpPolicy",
             env,
@@ -157,6 +159,7 @@ def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, m
             batch_size = 72
             )
     else:
+        print("\n\033[92mLOADING MODEL...\033[0m\n")
         model = PPO.load(
             model_path,
             env

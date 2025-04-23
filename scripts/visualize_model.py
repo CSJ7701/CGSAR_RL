@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import random
 
-def visualize_model(data_file, lat, lon, config_file, model_file, render_mode):
+def visualize_model(data_file, lat, lon, config_file, model_file, render_mode, save):
     """
     Visualize a trained model by running it in a custom environment.
 
@@ -22,6 +22,7 @@ def visualize_model(data_file, lat, lon, config_file, model_file, render_mode):
     """
     # Initialize the environment
     env = GymEnv(data_file, lat, lon, config_file)
+    print(env.cutter.victim_index)
 
     # Load the trained model
     model = PPO.load(model_file, env)
@@ -36,7 +37,8 @@ def visualize_model(data_file, lat, lon, config_file, model_file, render_mode):
         if render_mode == "ansi":
             env.render(mode="ansi")
     if render_mode == "human":
-        env.render(mode="human", show=True)
+        show = not save
+        env.render(mode="human", show=show)
 
     env.close()
 
@@ -85,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--config_file", type=str, required=True, help="Path to the configuration file.")
     parser.add_argument("--model_file", type=str, required=True, help="Path to the trained model file.")
     parser.add_argument("--render_mode", type=str, default="human", choices=["human", "ansi"], help="Rendering mode ('human' or 'ansi').")
+    parser.add_argument("--save", action='store_true', help="Save the visualization as an .mp4 file")
 
     args = parser.parse_args()
     if not args.lon or not args.lat:
@@ -100,5 +103,6 @@ if __name__ == "__main__":
         lon,
         args.config_file,
         args.model_file,
-        args.render_mode
+        args.render_mode,
+        args.save
     )

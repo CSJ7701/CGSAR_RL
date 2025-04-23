@@ -43,13 +43,17 @@ def parse_args():
     # Victim Group Settings
     victims = parser.add_argument_group("Victim Group Settings.", "Parameters for victim group configuration.")
     victims.add_argument("-v", "--num_victims", required=True, type=int, help="Number of victims per victim group.")
-    victims.add_argument("-r", "--victim_radius", required=True, type=float, help="Radius for victim group spread. Recommended between 0.1 and 0.3.")
+    #victims.add_argument("-r", "--victim_radius", required=True, type=float, help="Radius for victim group spread. Recommended between 0.1 and 0.3.")
     vic_lat_group = victims.add_mutually_exclusive_group()
     vic_lat_group.add_argument("--vic_lat", type=float, help="Base latitude for victim group.")
     vic_lat_group.add_argument("--vic_lat_range", type=float, nargs=2, metavar=("LOWER", "UPPER"), help="Range for randomizing victim group latitude.")
     vic_lon_group = victims.add_mutually_exclusive_group()
     vic_lon_group.add_argument("--vic_lon", type=float, help="Base longitude for victim group.")
     vic_lon_group.add_argument("--vic_lon_range", type=float, nargs=2, metavar=("LOWER", "UPPER"), help="Range for randomizing victim group longitude.")
+
+    victim_dist_group = victims.add_mutually_exclusive_group()
+    victim_dist_group.add_argument("-g", "--gaussian", type=float, nargs=2, metavar=("LAT_STD_DEV", "LON_STD_DEV"), help="Use Gaussian distribution for victim positions with specified params.")
+    victim_dist_group.add_argument("-u", "--uniform", type=float, nargs=1, metavar=("RADIUS"), help="Use uniform distribution for victim position with specified radius.")
 
     return parser.parse_args()
 
@@ -68,6 +72,19 @@ def randomize_date(base_date, range_hours):
         offset = random.randint(*range_hours)
         return base_date + timedelta(hours=offset)
     return base_date
+
+def victim_pos_gaussian(base_lat, base_lon, lat_dev, lon_dev, num = 100):
+    lats = base_lat + np.random.normal(0, lat_dev, num)
+    lons = base_lon + np.random.normal(0, lon_dev, num)
+    return lats, lons
+
+def victim_pos_uniform(base_lat, base_lon, r, num):
+    r = np.random.uniform(0,r,num)
+    theta = np.random.uniform(0, 2*np.pi, num)
+    lats = base_lat + r*np.cos(theta)
+    lons = base_lon + r*np.sin(theta)
+    return lats, lons
+    
    
 
 def main():
@@ -134,23 +151,45 @@ def main():
                     vic_lon = randomize_value(None, (sim_min_lon, sim_max_lon))
                 base_vic_lat = vic_lat if vic_lat is not None else sim_lat
                 base_vic_lon = vic_lon if vic_lon is not None else sim_lon
-                victim_radius = args.victim_radius
+                #victim_radius = args.victim_radius
                 num_victims = args.num_victims
 
                 # Define a buffer so victims aren't too close to the simulation boundary
-                buffer_lat = (sim_max_lat - sim_min_lat) * 0.4
-                buffer_lon = (sim_max_lon - sim_min_lon) * 0.4
+                buffer_lat = (sim_max_lat - sim_min_lat) * 0.15
+                buffer_lon = (sim_max_lon - sim_min_lon) * 0.15
                 inset_min_lat = sim_min_lat + buffer_lat
                 inset_max_lat = sim_max_lat - buffer_lat
                 inset_min_lon = sim_min_lon + buffer_lon
                 inset_max_lon = sim_max_lon - buffer_lon
 
-                r = np.random.uniform(0, victim_radius, num_victims)
-                theta = np.random.uniform(0, 2*np.pi, num_victims)
+                #r = np.random.uniform(0, victim_radius, num_victims)
+                #theta = np.random.uniform(0, 2*np.pi, num_victims)
                 #victim_latitudes = base_vic_lat + r*np.cos(theta)
                 #victim_longitudes = base_vic_lon + r*np.sin(theta)
-                victim_latitudes = np.clip(base_vic_lat + r*np.cos(theta), inset_min_lat, inset_max_lat)
-                victim_longitudes = np.clip(base_vic_lon + r*np.sin(theta), inset_min_lon, inset_max_lon)
+                #victim_latitudes = np.clip(base_vic_lat + r*np.cos(theta), inset_min_lat, inset_max_lat)
+                #victim_longitudes = np.clip(base_vic_lon + r*np.sin(theta), inset_min_lon, inset_max_lon)
+
+                if args.gaussian:
+                    lat_dev, lon_dev = args.gaussian
+                    victim_latitudes, victim_longitudes = victim_pos_gaussian(
+                        base_vic_lat,
+                        base_vic_lon,
+                        lat_dev,
+                        lon_dev,
+                        num_victims)
+                elif args.uniform:
+                    radius = args.uniform[0]
+                    victim_latitudes, victim_longitudes = victim_pos_uniform(
+                        base_vic_lat,
+                        base_vic_lon,
+                        radius,
+                        num_victims)
+                else:
+                    raise ValueError("No specified distribution...")
+
+                victim_latitudes = np.clip(victim_latitudes, inset_min_lat, inset_max_lat)
+                victim_longitudes = np.clip(victim_longitudes, inset_min_lon, inset_max_lon)
+                    
                 victim_types = np.full(num_victims, "piw")
                 
 
