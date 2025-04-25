@@ -21,8 +21,8 @@ class GymEnv(gym.Env):
         self.cutter = Cutter(hdf5_path, lat, lon, config_path)
 
         # Define action space (Discrete: 4 possible movements)
-        self.action_space = spaces.Discrete(8)
-        self.action_queue = deque(maxlen=8)
+        self.action_space = spaces.Discrete(5)
+        self.action_queue = deque(maxlen=5)
 
         obs_values = self.cutter.observe().shape[0]
         self.observation_space = spaces.Box(
@@ -79,7 +79,7 @@ class GymEnv(gym.Env):
                 lon = random.uniform(lon_min, lon_max)
                 if is_valid_position(lat, lon):
                     return (lat, lon)
-                print(f"Invalid position: ({lat}, {lon})")
+                #print(f"Invalid position: ({lat}, {lon})")
             raise RuntimeError("Could not find a valid position...")
                 
         
@@ -122,17 +122,20 @@ class GymEnv(gym.Env):
         return self.cutter.observe(), {}
 
     def _compute_straightness(self):
+        """
+        Compute a reward based on changes in orientation.
+        Encourages efficient search patterns by penalizing excessive turning.
+        """
         if len(self.action_queue) < 2:
             return 0 # Not enough data to judge behavior
-        num_unique = len(set(self.action_queue))
-        if num_unique == 1:
-            return +0.1
-        elif 2 <= num_unique <= 2:
+        non_forward_count = sum(1 for action in self.action_queue if action != 0)
+
+        if non_forward_count == 0:
+            return 0.1
+        elif non_forward_count <= 2:
+            return 0
+        else:
             return -0.1
-        elif 4 <= num_unique <= 6:
-            return -0.2
-        else: # 7 or 8
-            return -0.5
 
     def reward(self):
         x,y = self.cutter._compute_relative_position()
@@ -142,7 +145,10 @@ class GymEnv(gym.Env):
         #heatmap_reward = 1 * heatmap_value # 0-10 scale 
         heatmap_reward = 0
 
-        straightness_reward = self._compute_straightness()
+        # # Replace straightness reward curve with static punishment
+        #straightness_reward = self._compute_straightness()
+        current_action = self.action_queue[-1] if len(self.action_queue) > 0 else 0
+        straightness_reward = -0.5 if current_action != 0 else 0
 
         # Reward based on distance to heatmap - exponential decay
         distance = self.cutter._get_heatmap_distance(x,y)
@@ -152,7 +158,7 @@ class GymEnv(gym.Env):
         # Tanh gives curved falloff from 0 to -1. decent slope until coefficient (15), then starts to level off and meet asymptote
 
         # Main reward for finding a victim
-        victim_reward = 1000 if self.cutter.victim_check() else 0
+        victim_reward = 10000 if self.cutter.victim_check() else 0
 
         # Penalty for running aground
         aground_penalty = -5000 if self.cutter.is_aground() else 0
@@ -182,8 +188,9 @@ class GymEnv(gym.Env):
             truncated = True
             terminated = False
             return self.cutter.observe(), 0, terminated, truncated, {}
-        
-        direction_map = {0:'N', 1:'S', 2:'E', 3:'W', 4:'NE', 5:'SE', 6:'NW', 7:'SW'}
+
+        # Forward MUST be 0 for the straightness_reward to work correctly
+        direction_map = {0:'forward', 1:'forward_left', 2:'forward_right', 3:'left', 4:'right'}
         direction = direction_map[int(action)]
         self.cutter.update(direction)
         self.action_queue.append(int(action))

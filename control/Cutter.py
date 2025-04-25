@@ -293,7 +293,63 @@ class Cutter:
             local_heatmap = local_heatmap / max_val
 
         return local_heatmap
-        
+
+    def calculate_visibility_mask(self, max_range_nm=10, cone_angle=60, hi_vis_radius_nm=1):
+        """
+        Calculate a visibility mask based on cutter orientation and position.
+
+        :param max_range_nm: Maximum visibility range in nautical miles
+        :param cone_angle: Angle of forward visibility cone in degrees
+        :param hi_vis_radius_nm: Radius of high visibility circle around the cutter in nautical miles
+        :return: Visibility mask matching heatmap dimensions, values 0-1
+        """
+
+        # Create empty mask matching heatmap dimensions
+        mask = np.zeros_like(self.heatmap)
+
+        # Convert nm to degrees for calc
+        lat_deg_per_nm = 1/60
+        lon_deg_per_nm = 1/(60*np.cos(np.radians(self.lat)))
+        # Get matrix indices
+        lat_idx = np.abs(self.heatmap_latitudes - self.lat).argmin()
+        lon_idx = np.abs(self.heatmap_longitudes - self.lon).argmin()
+        # Range indices
+        max_lat_range = int(max_range_nm * lat_deg_per_nm / (self.heatmap_latitudes[1] - self.heatmap_latitudes[0]))
+        max_lon_range = int(max_range_nm * lon_deg_per_nm / (self.heatmap_longitudes[1] - self.heatmap_longitudes[0]))
+        # High Vis indices
+        high_vis_radius_lat = int(hi_vis_radius_nm * lat_deg_per_nm / (self.heatmap_latitudes[1] - self.heatmap_latitudes[0]))
+        high_vis_radius_lon = int(hi_vis_radius_nm * lon_deg_per_nm / (self.heatmap_longitudes[1] - self.heatmap_longitudes[0]))
+
+        # for each point in the vis range
+        height, width = mask.shape
+        for i in range(max(0, lat_idx - max_lat_range), min(height, lat_idx + max_lat_range)):
+            for j in range(max(0, lon_idx - max_lon_range), min(width, lon_idx + max_lon_range)):
+                # Calculate distance from cutter in grid units
+                dy = i - lat_idx
+                dx = j - lon_idx
+
+                # Calculate distance in nm
+                dist_nm = np.sqrt((dy*(self.heatmap_latitudes[1] - self.heatmap_latitudes[0]) / lat_deg_per_nm)**2 +
+                    (dx * (self.heatmap_longitudes[1] - self.heatmap_longitudes[0]) / lon_deg_per_nm)**2)
+
+                # High vis circle around cutter
+                if dist_nm <= hi_vis_radius_nm:
+                    mask[i,j] = 1.0
+                    continue
+
+                # Skip if beyond max range
+                if dist_nm > max_range_nm:
+                    continue
+
+                angle = np.degrees(np.arctan2(dx, -dy)) # Negate dy, latitude increases northward.
+                angle = (angle - self.orientation) % 360
+
+                # Check if in forward facing cone
+                if angle <= cone_angle/2 or angle >= 360 - cone_angle/2:
+                    # Calculate visibility decay based on distance
+                    visibility = 1.0 - (dist_nm / max_range_nm)**1.5 # Non linear decay
+                    mask[i,j] = max(mask[i,j], visibility)
+        return mask
 
     def move(self, direction):
         """
@@ -309,7 +365,7 @@ class Cutter:
             raise ValueError("Current Step unknown. Cutter object was not initialized properly")
 
         if self.is_aground():
-            print("Boat is aground!")
+            # print("Boat is aground!")
             return # No movement if the cutter is aground
 
         # Convert knots to nautical miles per second
@@ -317,52 +373,44 @@ class Cutter:
         # Calculate displacement
         displacement_nm = speed_nm_per_sec * self.time_step
 
-        # Displacement components for diagonal motion
-        lat_change = 0
-        lon_change = 0
+        turn_angles = {
+            'left': -45,
+            'right': 45,
+            'forward': 0,
+            'forward_left': -15,
+            'forward_right': 15
+        }
 
-        # Approximate conversion (1 nm ~~ 1/60th of a degree)
-        if direction == 'N':
-            lat_change = displacement_nm / 60
-            self.orientation = 0
-        elif direction == 'S':
-            lat_change = -displacement_nm / 60
-            self.orientation = 180
-        elif direction == 'E':
-            lon_change = displacement_nm / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 90
-        elif direction == 'W':
-            lon_change = -displacement_nm / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 270
-        elif direction == 'NE':
-            diag_displacement = displacement_nm / np.sqrt(2)
-            lat_change = diag_displacement / 60
-            lon_change = diag_displacement / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 45
-        elif direction == 'SE':
-            diag_displacement = displacement_nm / np.sqrt(2)
-            lat_change = -diag_displacement / 60
-            lon_change = diag_displacement / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 135
-        elif direction == 'SW':
-            diag_displacement = displacement_nm / np.sqrt(2)
-            lat_change = -diag_displacement / 60
-            lon_change = -diag_displacement / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 225
-        elif direction == 'NW':
-            diag_displacement = displacement_nm / np.sqrt(2)
-            lat_change = diag_displacement / 60
-            lon_change = -diag_displacement / (60*np.cos(np.radians(self.lat)))
-            self.orientation = 315
+        if direction in turn_angles:
+            self.orientation = (self.orientation + turn_angles[direction]) % 360
+        else:
+            raise ValueError(f"Unknown direction: {direction}")
+
+        # Calculate movement vector based on orientation
+        # For any pure left/right turns, reduce forward movement
+        move_factor = 1.0
+        if direction == 'left' or direction == 'right':
+            move_factor = 0.2
+
+        # Convert to radians
+        orientation_rad = np.radians(self.orientation)
+
+        dx = displacement_nm * move_factor * np.sin(orientation_rad)
+        dy = displacement_nm * move_factor * np.cos(orientation_rad)
+
+        # Convert displacement to lat/lon changes
+        # Latitude: 1nm ~~ 1/60 degrees
+        lat_change = dy/60
+        # Longitude: 1nm ~~ 1/(60*cos(lat))
+        lon_change = dx / (60*np.cos(np.radians(self.lat)))
 
         self.lat += lat_change
         self.lon += lon_change
-        
-        # Update the cutter's position
+
         self.path[f"{self.current_step}"].append((self.lat, self.lon))
 
     # At a height of 10 meters above the ground, visibility should be about 356.96 Km, or 192.7 nm.
-    def victim_check(self, radius_nm=5):
+    def victim_check_omni(self, radius_nm=5):
         """
         Check if any victims are within a specified radius from the Cutter's current position.
 
@@ -380,13 +428,42 @@ class Cutter:
         # Euclidean Distances
         distances = np.sqrt((victim_position[0] - lat) ** 2 + (victim_position[1] - lon) ** 2)
         nearby_victims = np.any(distances < radius_deg)
+        if nearby_victims:
+            print("Victim Found!")
         return nearby_victims
+
+    def victim_check(self, radius_nm=5):
+        """
+        Check if any victims are detected within visibility ragne based on mask.
+
+        :return: True if any victims are detected, False otherwise
+        """
+        if self.victim_index is None or self.victim_position[self.victim_index].size == 0:
+            return False # No victim to check
+
+        visibility_mask = self.calculate_visibility_mask()
+        victim_position = self.victim_position[self.victim_index]
+
+        # Closest grid indices for victim
+        lat_idx = np.abs(self.heatmap_latitudes - victim_position[0]).argmin()
+        lon_idx = np.abs(self.heatmap_longitudes - victim_position[1]).argmin()
+
+        # Check if within mask bounds
+        if 0 <= lat_idx < visibility_mask.shape[0] and 0 <= lon_idx < visibility_mask.shape[1]:
+            # Get probability at victim location
+            vis_probability = visibility_mask[lat_idx, lon_idx]
+            detected = np.random.random() < vis_probability
+
+            if detected:
+                print("Victim Found!")
+                return True
+        return False
 
     def update(self, direction):
         """
         Update the Cutter's position and check for nearby victims, moving it to the next step.
         
-        :param direction: The direction to move the Cutter ('N', 'S', 'E', or 'W').
+        :param direction: The direction to move the Cutter ('forward', 'forward_left', 'forward_right', 'right, or 'left').
         
         :raises ValueError: If the current step is not defined.
         """
