@@ -152,7 +152,7 @@ class Cutter:
         y = (self.lat - self.lat_center) * 60 # Convert degrees to nautical miles
         return x,y
 
-    def _get_heatmap_value(self, x,y) -> int:
+    def _get_heatmap_value_old(self, x,y) -> int: # ISN'T WORKING. INDEX /W LAT LON, NOT X/Y
         row_idx = int(round(y))
         col_idx = int(round(x))
 
@@ -161,30 +161,51 @@ class Cutter:
         else:
             return 0
 
+    def _get_heatmap_value(self, lat, lon) -> float:
+        """
+        Get the heatmap value at the specified latitude and longitude.
+
+        :param lat: Latitude position
+        :param lon: Longitude position
+        :return: The heatmap value at the specified position.
+        """
+        # Closest indices in the heatmap grid
+        lat_idx=  np.abs(self.heatmap_latitudes - lat).argmin()
+        lon_idx=  np.abs(self.heatmap_longitudes - lon).argmin()
+
+        # Chekc if indices are in bounds
+        if 0 <= lat_idx < self.heatmap.shape[0] and 0 <= lon_idx < self.heatmap.shape[1]:
+            return self.heatmap[lat_idx, lon_idx]
+        else:
+            return 0.0
+
     def _get_direction_to_heatmap(self):
         """
         Calculate a unit vector pointing from the cutter toward the highest heatmap value.
         """
-        x,y = self._compute_relative_position()
-        heatmap_height, heatmap_width = self.rescaled_heatmap.shape
-
         max_idx = np.unravel_index(np.argmax(self.heatmap), self.heatmap.shape)
-        max_y, max_x = max_idx
+        max_lat_idx, max_lon_idx = max_idx
 
-        center_y = heatmap_height//2
-        center_x = heatmap_width//2
+        # Lat/Lon of max value
+        max_lat  = self.heatmap_latitudes[max_lat_idx]
+        max_lon = self.heatmap_longitudes[max_lon_idx]
 
-        target_y = center_y-max_y
-        target_x = center_x-max_x
+        # Convert to nautical miles
+        current_x = (self.lon - self.lon_center) * np.cos(np.radians(self.lat_center)) * 60
+        current_y = (self.lat - self.lat_center) * 60
 
-        dx = target_x - x
-        dy = target_y - y
+        target_x = (max_lon - self.lon_center) * np.cos(np.radians(self.lat_center)) * 60
+        target_y = (max_lat - self.lat_center) * 60
 
+        dx = target_x - current_x
+        dy = target_y - current_y
+
+        # Normalize to unit vector
         magnitude = np.sqrt(dx**2 + dy**2)
         if magnitude > 0:
             dx /= magnitude
-            dy /= magnitude
-
+            dy /= magnitude 
+        
         return dx,dy
 
     def _get_weighted_direction(self):
@@ -194,10 +215,8 @@ class Cutter:
         Returns:
         Tuple (dx, dy) of normalized direction components
         """
-        x, y = self._compute_relative_position()
-        heatmap_height, heatmap_width = self.heatmap.shape
-        center_y = heatmap_height // 2
-        center_x = heatmap_width // 2
+        current_x = (self.lon - self.lon_center) * np.cos(np.radians(self.lat_center)) * 60
+        current_y = (self.lat - self.lat_center) * 60
     
         # Find all non-zero heatmap cells
         non_zero_indices = np.argwhere(self.heatmap > 0)
@@ -211,18 +230,21 @@ class Cutter:
     
         # Process each non-zero cell
         for idx in non_zero_indices:
-            cell_y, cell_x = idx
+            lat_idx, lon_idx = idx
+
+            cell_lat = self.heatmap_latitudes[lat_idx]
+            cell_lon = self.heatmap_longitudes[lon_idx]
         
             # Convert to relative coordinates
-            target_y = (center_y - cell_y)  # Inverted y-axis
-            target_x = (cell_x - center_x)
+            target_x = (cell_lon - self.lon_center) * np.cos(np.radians(self.lat_center)) * 60
+            target_y = (cell_lat - self.lat_center) * 60
         
             # Get cell value (weight)
-            cell_value = self.heatmap[cell_y, cell_x]
+            cell_value = self.heatmap[lat_idx, lon_idx]
         
             # Calculate direction and distance
-            dx = target_x - x
-            dy = target_y - y
+            dx = target_x - current_x
+            dy = target_y - current_y
             distance = np.sqrt(dx**2 + dy**2)
         
             # Skip if we're at the exact location to avoid division by zero
@@ -341,7 +363,7 @@ class Cutter:
                 if dist_nm > max_range_nm:
                     continue
 
-                angle = np.degrees(np.arctan2(dx, -dy)) # Negate dy, latitude increases northward.
+                angle = np.degrees(np.arctan2(dx, dy)) # Negate dy, latitude increases northward.
                 angle = (angle - self.orientation) % 360
 
                 # Check if in forward facing cone
@@ -350,6 +372,14 @@ class Cutter:
                     visibility = 1.0 - (dist_nm / max_range_nm)**1.5 # Non linear decay
                     mask[i,j] = max(mask[i,j], visibility)
         return mask
+
+    def store_visibility_mask(self):
+        if not hasattr(self, 'mask_history'):
+            self.mask_history = {}
+
+        self.mask_history[self.current_step] = {
+            'mask': self.calculate_visibility_mask()
+        }
 
     def move(self, direction):
         """
@@ -418,7 +448,9 @@ class Cutter:
 
         :return: True if there are any victims within the specified radius, False otherwise (bool).
         """
-        if self.victim_index is None or self.victim_position[self.victim_index].size == 0:
+        if self.victim_index is None:
+            return False
+        if self.victim_position[self.victim_index].size == 0:
             return False # No victims to check
         
         radius_deg = radius_nm / 60
@@ -438,7 +470,13 @@ class Cutter:
 
         :return: True if any victims are detected, False otherwise
         """
-        if self.victim_index is None or self.victim_position[self.victim_index].size == 0:
+        if self.victim_index is None:
+            return False
+        if self.victim_position is None:
+            return False
+        if self.victim_position.size == 0:
+            return False
+        if self.victim_position[self.victim_index].size == 0:
             return False # No victim to check
 
         visibility_mask = self.calculate_visibility_mask()
@@ -472,6 +510,7 @@ class Cutter:
 
         self.move(direction)
         self.victim_check()
+        self.store_visibility_mask()
         self._load_step_data(self.current_step+1)
 
     def observe(self):
@@ -488,14 +527,7 @@ class Cutter:
         direction_x, direction_y = self._get_direction_to_heatmap()
         weighted_dx, weighted_dy = self._get_weighted_direction()
 
-        heatmap_height, heatmap_width = self.heatmap.shape
-        center_x = heatmap_height//2
-        center_y = heatmap_width//2
-        grid_x = center_x - int(round(x))
-        grid_y = center_y - int(round(y))
-        grid_x = max(0, min(grid_x, heatmap_width - 1))
-        grid_y = max(0, min(grid_y, heatmap_height - 1))
-        heatmap_value = self.heatmap[grid_y, grid_x]
+        heatmap_value = self._get_heatmap_value(self.lat, self.lon)
 
         distance = self._get_heatmap_distance(x,y)
         normalized_distance = np.tanh(distance / 20.0)
@@ -525,7 +557,7 @@ class Cutter:
             # Flattened local heatmap view (fixed size regardless of total map dimensions)
             local_heatmap.flatten()
         ])
-                
+
         # Old approach...
         #distance_to_heatmap = self._get_heatmap_distance(x,y)
         #heatmap_value_at_point = self._get_heatmap_value(x,y)
@@ -534,6 +566,88 @@ class Cutter:
         #])
 
         return obs
+
+    def observe_dict(self):
+        # Get relevant data
+        x, y = self._compute_relative_position()
+        depth_under_keel = self._get_depth() - self.draft
+    
+        # Navigation data
+        direction_x, direction_y = self._get_direction_to_heatmap()
+        weighted_dx, weighted_dy = self._get_weighted_direction()
+        distance = self._get_heatmap_distance(x, y)
+        normalized_distance = np.tanh(distance / 20.0)
+        #heatmap_value = self._get_heatmap_value(x, y)
+    
+        # Agent state data
+        norm_depth = np.tanh(depth_under_keel / 20.0)
+        norm_time = self.current_step / self.max_steps if self.max_steps > 0 else 0
+    
+        # Create local grid
+        grid_size = 9
+        half_size = grid_size // 2
+    
+        # Initialize grid with channels
+        local_grid = np.zeros((grid_size, grid_size, 5), dtype=np.float32)
+    
+        # Get lat/lon step sizes from heatmap grid (using that as a reference)
+        if len(self.heatmap_latitudes) > 1:
+            lat_step = abs(self.heatmap_latitudes[1] - self.heatmap_latitudes[0])
+        else:
+            lat_step = 0.01 # Default if there's only one latitude value (shouldn't happen)
+
+        if len(self.heatmap_longitudes) > 1:
+            lon_step = abs(self.heatmap_longitudes[1] - self.heatmap_longitudes[0])
+        else:
+            lon_step = 0.01 # Default for one lon value (also shouldn't ever happen)
+
+        visibility_mask = self.calculate_visibility_mask()
+
+        for i in range(grid_size):
+            for j in range(grid_size):
+                # Calculate lat/lon location for this cell
+                cell_lat = self.lat + (i-half_size) * lat_step
+                cell_lon = self.lon + (j-half_size) * lon_step
+
+                # Find nearest indices in each dataset for this lat/lon
+                ocean_lat_idx = np.abs(self.latitudes - cell_lat).argmin()
+                ocean_lon_idx = np.abs(self.longitudes - cell_lon).argmin()
+                hm_lat_idx = np.abs(self.heatmap_latitudes - cell_lat).argmin()
+                hm_lon_idx = np.abs(self.heatmap_longitudes - cell_lon).argmin()
+
+                # Channel 0: Normalized Depth
+                if (0 <= ocean_lat_idx < self.depth.shape[0] and
+                    0 <= ocean_lon_idx < self.depth.shape[1]):
+                    depth = self.depth[ocean_lat_idx, ocean_lon_idx]
+                    local_grid[i,j,0] = np.tanh(depth/50.0)
+
+                # Channel 1-2: Currents
+                if (0 <= ocean_lat_idx < self.uo.shape[0] and
+                    0 <= ocean_lon_idx < self.uo.shape[1]):
+                    local_grid[i,j,1] = self.uo[ocean_lat_idx,ocean_lon_idx]
+                    local_grid[i,j,2] = self.vo[ocean_lat_idx,ocean_lon_idx]
+
+                # Channel 3: Heatmap Values
+                if (0 <= hm_lat_idx < self.heatmap.shape[0] and
+                    0 <= hm_lon_idx < self.heatmap.shape[1]):
+                    local_grid[i,j,3] = self.heatmap[hm_lat_idx, hm_lon_idx]
+
+                # Channel 4: Visibility Mask
+                if (0 <= hm_lat_idx < visibility_mask.shape[0] and
+                    0 <= hm_lon_idx < visibility_mask.shape[1]):
+                    local_grid[1,j,4] = visibility_mask[hm_lat_idx, hm_lon_idx]
+            
+        # Return Dict observation
+        return {
+            'grid': local_grid,
+            'agent': np.array([norm_depth, norm_time], dtype=np.float32),
+            'nav': np.array([
+                direction_x, direction_y,
+                weighted_dx, weighted_dy,
+                normalized_distance,
+            ], dtype=np.float32)
+        }
+
         
         
      

@@ -1,4 +1,5 @@
 import argparse
+from control.ObservationStackingWrapper import ObservationStackingWrapper
 import gymnasium as gym
 import torch
 from stable_baselines3 import PPO
@@ -8,7 +9,7 @@ import h5py
 import numpy as np
 import random
 
-def visualize_model(data_file, lat, lon, config_file, model_file, render_mode, save):
+def visualize_model(data_file, lat, lon, config_file, model_file, render_mode, save, num_stack: int = 4, use_fixed_position: bool = True):
     """
     Visualize a trained model by running it in a custom environment.
 
@@ -22,7 +23,12 @@ def visualize_model(data_file, lat, lon, config_file, model_file, render_mode, s
     """
     # Initialize the environment
     env = GymEnv(data_file, lat, lon, config_file)
-    print(env.cutter.victim_index)
+
+    if use_fixed_position:
+        env.use_fixed_position(lat, lon)
+
+    if num_stack > 1:
+        env = ObservationStackingWrapper(env, num_stack=num_stack)
 
     # Load the trained model
     model = PPO.load(model_file, env)
@@ -35,10 +41,16 @@ def visualize_model(data_file, lat, lon, config_file, model_file, render_mode, s
         action, _ = model.predict(obs)
         obs, reward, done, truncated, _ = env.step(action)
         if render_mode == "ansi":
-            env.render(mode="ansi")
+            if env.unwrapped:
+                env.unwrapped.render(mode="ansi")
+            else:
+                env.render(mode="ansi")
     if render_mode == "human":
         show = not save
-        env.render(mode="human", show=show)
+        if env.unwrapped:
+            env.unwrapped.render(mode="human", show=show)
+        else:
+            env.render(mode="human", show=show)
 
     env.close()
 
@@ -88,14 +100,17 @@ if __name__ == "__main__":
     parser.add_argument("--model_file", type=str, required=True, help="Path to the trained model file.")
     parser.add_argument("--render_mode", type=str, default="human", choices=["human", "ansi"], help="Rendering mode ('human' or 'ansi').")
     parser.add_argument("--save", action='store_true', help="Save the visualization as an .mp4 file")
+    parser.add_argument("--stack", type=int, default=1, help="Number of observation stacks the agent was trained with.")
 
     args = parser.parse_args()
     if not args.lon or not args.lat:
         print("Either --lat or --lon missing. Randomizing position.")
         lat, lon = randomize_cutter_position(args.data_file)
+        fixed_position = False
     else:
         lat = args.lat
         lon = args.lon
+        fixed_position = True
         
     visualize_model(
         args.data_file,
@@ -104,5 +119,7 @@ if __name__ == "__main__":
         args.config_file,
         args.model_file,
         args.render_mode,
-        args.save
+        args.save,
+        args.stack,
+        use_fixed_position=fixed_position
     )

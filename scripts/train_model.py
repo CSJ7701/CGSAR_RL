@@ -4,15 +4,16 @@ import os
 import random
 import subprocess
 import re
+from application import config
 import h5py
 import numpy as np
 from typing import Optional, Tuple
-import gymnasium as gym
 import torch
 from tqdm import tqdm
 from stable_baselines3 import PPO
 
 from control.GymEnv import GymEnv
+from control.ObservationStackingWrapper import ObservationStackingWrapper
 from application.logger import Logger
 
 logger = Logger("Train").get()
@@ -27,10 +28,10 @@ def parse_args():
     train.add_argument("-e", "--environment_dir", type=str, required=True, help="Path to the simulation data directory, or single file.")
     
     train.add_argument("-y", "--evaluation", type=int, default=None, help="Interval in iterations at which to show an evaluation step. Default is 0, or no evaluation. If enabled, higher numbers are recommended.")
+    train.add_argument("-s", "--stack", type=int, default=1, help="Number of observations to stack. Default is 1 (no stacking).")
 
     cutter = parser.add_argument_group("Agent Parameters", "Parameters to define the behavior of the agent, representing a CG Cutter.")
     cutter.add_argument("-p", "--position", type=float, nargs=2, default=None, help="Specify a fixed position (lat, lon)")
-    
 
     return parser.parse_args()
 
@@ -137,25 +138,37 @@ def randomize_cutter_position(data_file: str) -> Tuple[float, float]:
 def start_tensorboard(log_dir="./data/tensorboard", port=6006):
     subprocess.Popen(["tensorboard", "--logdir", log_dir, "--port", str(port)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, model_path: str, tensorboard_path: str = "./data/tensorboard", iteration_bar: Optional[tqdm] = None):
+def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, model_path: str, tensorboard_path: str = "./data/tensorboard", iteration_bar: Optional[tqdm] = None, num_stack: int = 4, use_fixed_position: bool = False):
 
     if not data_file or not episodes:
         raise ValueError("Missing training parameters.")
 
     env = GymEnv(data_file, cutter_lat, cutter_lon, "resources/settings.json")
 
+    if use_fixed_position:
+        env.use_fixed_position(cutter_lat, cutter_lon)
+
+    # Wrap the environment with the stack wrapper
+    if num_stack > 1:
+        env = ObservationStackingWrapper(env, num_stack=num_stack)
+        print(f"\n\033[94mUsing observation stacking with {num_stack} frames\033[0m\n")
+
     start_tensorboard(log_dir=tensorboard_path)
 
     model_path = os.path.abspath(model_path + ".zip")
     if not os.path.exists(model_path):
         print(f"\n\033[93mCREATING A NEW MODEL at {model_path}....\033[0m\n")
+        if env.unwrapped:
+            n_steps = env.unwrapped.cutter.max_steps
+        else:
+            n_steps = env.cutter.max_steps
         model = PPO(
-            "MlpPolicy",
+            "MultiInputPolicy",
             env,
             verbose=0,
             device="cuda",
             tensorboard_log=tensorboard_path,
-            n_steps = env.cutter.max_steps,
+            n_steps = n_steps,
             batch_size = 72
             )
     else:
@@ -165,7 +178,10 @@ def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, m
             env
             )
 
-    episode_size = env.cutter.max_steps
+    if env.unwrapped:
+        episode_size = env.unwrapped.cutter.max_steps
+    else:
+        episode_size = env.cutter.max_steps
     target_episodes = episodes
     episode_scale_factor = ceil(target_episodes / episode_size)
 
@@ -175,11 +191,17 @@ def train(data_file: str, episodes: int, cutter_lat: float, cutter_lon: float, m
     if iteration_bar:
         iteration_bar.update(1)
 
-def evaluate(data_file: str, cutter_lat: float, cutter_lon: float, model_path: str):
+def evaluate(data_file: str, cutter_lat: float, cutter_lon: float, model_path: str, num_stack: int = 4, use_fixed_position: bool = False):
     if not os.path.exists(model_path):
         raise ValueError("Model does not exist.")
     
     env = GymEnv(data_file, cutter_lat, cutter_lon, "resources/settings.json")
+    if use_fixed_position:
+        env.use_fixed_position(cutter_lat, cutter_lon)
+
+    if num_stack > 1:
+        env = ObservationStackingWrapper(env, num_stack=num_stack)
+
     model = PPO.load(model_path, env)
 
     obs, _ = env.reset()
@@ -189,7 +211,10 @@ def evaluate(data_file: str, cutter_lat: float, cutter_lon: float, model_path: s
         action, _states = model.predict(obs)
         obs, reward, done, truncated, _ = env.step(action)
 
-    env.render(mode="human", show=True)
+    if env.unwrapped:
+        env.unwrapped.render(mode="human", show=True)
+    else:
+        env.render(mode="human", show=True)
 
 def main():
     args = parse_args()
@@ -197,6 +222,9 @@ def main():
     
     if not validate_data_dir(args.environment_dir):
         raise ValueError("Directory structure is not valid.")
+
+    if args.stack > 1:
+        print(f"\n\033[94mUsing observation stacking with {args.stack} frames\033[0m\n")
 
     total_iteration_count = args.simulations * args.iterations
     with tqdm(total = total_iteration_count, desc="Total Progress") as total_bar:
@@ -212,12 +240,15 @@ def main():
                         logger.info({"message": f"Beginning training iteration [{i+1}/{args.iterations}]"})
                         total_iterations+=1
                         if args.position:
+                            fixed_position = True
                             position = args.position
                         else:
+                            fixed_position = False
                             position = randomize_cutter_position(data) # lat, lon
-                        train(data, args.episodes, position[0], position[1], "first_model", iteration_bar=iteration_bar)
+                            
+                        train(data, args.episodes, position[0], position[1], "first_model", iteration_bar=iteration_bar, num_stack=args.stack, use_fixed_position=fixed_position)
                         if args.evaluation and total_iterations%args.evaluation == 0:
-                            evaluate(data, 30.0, -80.1, "first_model")
+                            evaluate(data, position[0], position[1], "first_model", num_stack=args.stack, use_fixed_position=fixed_position)
 
                         total_bar.update(1)
                 sim_bar.update(1)

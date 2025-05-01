@@ -3,7 +3,6 @@ from typing import Tuple
 from collections import deque
 import gymnasium as gym
 from gymnasium import spaces
-from gymnasium.utils import seeding
 import h5py
 import numpy as np
 from .Cutter import Cutter
@@ -24,14 +23,15 @@ class GymEnv(gym.Env):
         self.action_space = spaces.Discrete(5)
         self.action_queue = deque(maxlen=5)
 
-        obs_values = self.cutter.observe().shape[0]
-        self.observation_space = spaces.Box(
-            low = np.full(obs_values, -np.inf, dtype=np.float64),
-            high = np.full(obs_values, np.inf, dtype=np.float64),
-            dtype=np.float64
-        )
+        # obs_values = self.cutter.observe().shape[0]
+        # self.observation_space = spaces.Box(
+        #     low = np.full(obs_values, -np.inf, dtype=np.float64),
+        #     high = np.full(obs_values, np.inf, dtype=np.float64),
+        #     dtype=np.float64
+        # )
 
-        #self.setup_observation_space()
+        self.setup_new_observation_space()
+        self.fixed_position = None
 
     def setup_observation_space(self):
         # Calculate the total size of the observation space.
@@ -47,6 +47,45 @@ class GymEnv(gym.Env):
             high = np.full(obs_size, 1.0, dtype = np.float32),
             dtype = np.float32
         )
+
+    def setup_new_observation_space(self):
+        # Local grid around the cutter
+        grid_size = 9
+        channels = 5 # depth, current x, current y, heatmap, visibility
+
+        grid_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(grid_size, grid_size, channels),
+            dtype=np.float32
+        )
+
+        # Vessel state
+        # These should be scalars - box, discrete, or just dict entries?
+        agent_space = spaces.Box(
+            low=np.array([-1.0, 0.0]),
+            high=np.array([1.0, 1.0]),
+            shape=(2,), # Depth under keel (norm), time step (norm)
+            dtype = np.float32
+        )
+
+        # Navigation information
+        nav_space = spaces.Box(
+            low=np.array([-1.0, -1.0, -1.0, -1.0, 0.0]),
+            high=np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
+            shape=(5,), # Direction vectors, normalized distance
+            dtype=np.float32
+        )
+
+        # Combine into Dict space
+        observation_space = spaces.Dict({
+            'grid': grid_space,
+            'agent': agent_space,
+            'nav': nav_space
+        })
+
+        self.observation_space = observation_space
+
         
     def _randomize_cutter_position(self) -> Tuple[float, float]:
 
@@ -95,6 +134,9 @@ class GymEnv(gym.Env):
         lon_idx = np.searchsorted(self.cutter.heatmap_longitudes, self.cutter.lon) - 1
         lon_idx = np.clip(lon_idx, 0, self.cutter.heatmap.shape[1] - 1)
         return self.cutter.heatmap[lat_idx, lon_idx]
+
+    def use_fixed_position(self, lat, lon):
+        self.fixed_position = lat, lon
     
     def reset(self, seed=None, options=None):
         """
@@ -106,8 +148,9 @@ class GymEnv(gym.Env):
         data_path = self.cutter.data_path
         #lat = self.cutter.path["start"][0][0]
         #lon = self.cutter.path["start"][0][1]
-        if options and 'initial_position' in options:
-            self.cutter_position = options['initial_position']
+        # if options and 'initial_position' in options:
+        if self.fixed_position:
+            self.cutter_position = self.fixed_position
         else:
             self.cutter_position = self._randomize_cutter_position()
         lat, lon = self.cutter_position
@@ -119,7 +162,7 @@ class GymEnv(gym.Env):
         self.cutter._load_true_victim(self.victim_index)
         
         # Returns (obs, info)
-        return self.cutter.observe(), {}
+        return self.cutter.observe_dict(), {}
 
     def _compute_straightness(self):
         """
@@ -141,24 +184,24 @@ class GymEnv(gym.Env):
         x,y = self.cutter._compute_relative_position()
 
         # Reward for being in a heatmap cell, scaled by heatmap value
-        heatmap_value = self.cutter._get_heatmap_value(x,y)
+        heatmap_value = self.cutter._get_heatmap_value(self.cutter.lat, self.cutter.lon)
         #heatmap_reward = 1 * heatmap_value # 0-10 scale 
         heatmap_reward = 0
 
         # # Replace straightness reward curve with static punishment
         #straightness_reward = self._compute_straightness()
         current_action = self.action_queue[-1] if len(self.action_queue) > 0 else 0
-        straightness_reward = -0.5 if current_action != 0 else 0
+        straightness_reward = -0.1 if current_action != 0 else 0
 
         # Reward based on distance to heatmap - exponential decay
         distance = self.cutter._get_heatmap_distance(x,y)
         #distance_reward = 5 * np.exp(-distance/5.0)
         #distance_reward = -(distance**2) if heatmap_value == 0 else 0
-        distance_reward = np.tanh(-distance/15) if heatmap_value == 0 else 0
+        distance_reward = np.tanh(-distance/15) if heatmap_value == 0 else 5
         # Tanh gives curved falloff from 0 to -1. decent slope until coefficient (15), then starts to level off and meet asymptote
 
         # Main reward for finding a victim
-        victim_reward = 10000 if self.cutter.victim_check() else 0
+        victim_reward = 20000 if self.cutter.victim_check() else 0
 
         # Penalty for running aground
         aground_penalty = -5000 if self.cutter.is_aground() else 0
@@ -174,7 +217,7 @@ class GymEnv(gym.Env):
             time_penalty +
             straightness_reward
         )
-        
+        print(f"HH: {heatmap_value} || S: {straightness_reward} || D: {distance_reward} || T: {total_reward}")
         return total_reward
 
     def step(self, action):
@@ -187,7 +230,7 @@ class GymEnv(gym.Env):
         if self.cutter.current_step >= self.cutter.max_steps:
             truncated = True
             terminated = False
-            return self.cutter.observe(), 0, terminated, truncated, {}
+            return self.cutter.observe_dict(), 0, terminated, truncated, {}
 
         # Forward MUST be 0 for the straightness_reward to work correctly
         direction_map = {0:'forward', 1:'forward_left', 2:'forward_right', 3:'left', 4:'right'}
@@ -195,7 +238,7 @@ class GymEnv(gym.Env):
         self.cutter.update(direction)
         self.action_queue.append(int(action))
 
-        obs = self.cutter.observe()
+        obs = self.cutter.observe_dict()
         reward = self.reward()
         
         terminated = self.cutter.is_aground() or self.cutter.victim_check()
@@ -215,6 +258,7 @@ class GymEnv(gym.Env):
             v = Visualizer(self.data_path)
             v._load_trackline(self.cutter.path)
             v._load_real_victim(self.cutter.victim_index)
+            v._load_visibility(self.cutter.mask_history)
             v.run(show=show)
         elif mode == "ansi":
             print(f"Step: {self.cutter.current_step}/{self.cutter.max_steps} | Cutter Position: Lat={self.cutter.lat}, Lon={self.cutter.lon}")

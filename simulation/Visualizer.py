@@ -90,6 +90,10 @@ class Visualizer:
         self.trackline = trackline
         self.trackline_success = success
 
+    def _load_visibility(self, visibility_data):
+        self.mask_history = visibility_data
+        self.mask_img = None
+
     def _load_real_victim(self, index: int):
         """Store the real person's location for visualization."""
         if not self.real_victim_index:
@@ -205,7 +209,7 @@ class Visualizer:
         #self.winds = self.ax.quiver(lon_grid, lat_grid, uw_grid, vw_grid, color='green', alpha=0.7, label='Wind')
 
         # Victims
-        if self.victim_positions.size != 0:
+        if self.victim_positions.size != 0 and self.victim_positions is not None:
             self.victims = self.ax.scatter(self.victim_positions[:,1], self.victim_positions[:,0], color='dimgray', marker='o', label='Victims', s=0.5, alpha=0.0)
 
         # Trackline
@@ -223,6 +227,22 @@ class Visualizer:
                 self.trackline_plot, = self.ax.plot(
                     [start_lon], [start_lat],
                     marker='x', linestyle='-', color='b')
+
+        # Cutter visibility
+        if hasattr(self, 'mask_history') and step in self.mask_history:
+            mask_data = self.mask_history[step]
+            alpha_mask = np.where(mask_data['mask'] == 0,0,0.5)
+            self.mask_img = self.ax.pcolormesh(
+                self.x_edges,
+                self.y_edges,
+                mask_data['mask'],
+                cmap='Greens',
+                alpha=alpha_mask,
+                zorder=1,
+                vmin=0,
+                vmax=1
+                )
+
 
         if hasattr(self, 'real_victim') and self.real_victim is not None:
             self.real_victim_plot = self.ax.scatter(
@@ -258,7 +278,7 @@ class Visualizer:
             self.victims.set_offsets(self.victim_positions[:, [1,0]])
 
         if self.heatmap_img:
-            heatmap,_,_= self._heatmap()
+            heatmap,lon_bins,lat_bins= self._heatmap()
             self.heatmap_img.set_array(heatmap.ravel())
 
         if self.real_victim_plot:
@@ -275,6 +295,25 @@ class Visualizer:
                     lats.extend(coord[0] for coord in self.trackline[s])
                     lons.extend(coord[1] for coord in self.trackline[s])
             self.trackline_plot.set_data(lons, lats)
+
+        if hasattr(self, 'mask_history') and frame+1 in self.mask_history:
+            mask_data = self.mask_history[frame+1]
+            if self.mask_img:
+                self.mask_img.remove()
+
+            alpha_mask = np.where(mask_data['mask'] == 0,0,0.5)
+
+            self.mask_img = self.ax.pcolormesh(
+                lon_bins,
+                lat_bins,
+                mask_data['mask'],
+                cmap='Grays',
+                alpha=alpha_mask,
+                zorder=1,
+                vmin=0,
+                vmax=1
+            )
+            
 
         #return self.currents, self.winds, self.victims, self.heatmap_img
         return self.currents, self.victims, self.heatmap_img, self.real_victim_plot
